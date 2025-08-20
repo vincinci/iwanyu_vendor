@@ -49,15 +49,6 @@ export function VendorAuth() {
           router.push('/vendor/onboarding')
         }
       } else {
-        // Check for admin credentials first
-        if (formData.email === 'admin@iwanyu.com' && formData.password === 'admin123') {
-          // Admin login
-          localStorage.setItem('iwanyu_admin_session', 'true')
-          localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
-          router.push('/admin')
-          return
-        }
-
         // Try Supabase authentication
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
@@ -66,14 +57,33 @@ export function VendorAuth() {
           })
 
           if (error) {
-            // If Supabase auth fails, try demo mode for any other credentials
-            console.log('Supabase auth failed, using demo mode')
-            localStorage.setItem('iwanyu_vendor_session', 'true')
-            router.push('/vendor')
-            return
+            // If Supabase auth fails, try demo mode for any other credentials except admin
+            if (formData.email !== 'admin@iwanyu.com') {
+              console.log('Supabase auth failed, using demo mode')
+              localStorage.setItem('iwanyu_vendor_session', 'true')
+              router.push('/vendor')
+              return
+            } else {
+              throw error
+            }
           }
 
           if (data.user) {
+            // Check if this is an admin user
+            const { data: adminUser } = await supabase
+              .from('admin_users')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .single()
+
+            if (adminUser) {
+              // Admin login
+              localStorage.setItem('iwanyu_admin_session', 'true')
+              localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
+              router.push('/admin')
+              return
+            }
+
             // Check if vendor profile exists
             const { data: vendor } = await supabase
               .from('vendors')
