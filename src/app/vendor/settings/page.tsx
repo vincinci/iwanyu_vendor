@@ -17,7 +17,7 @@ interface VendorData {
   business_name: string
   business_address: string
   phone_number: string
-  social_media_links: any
+  social_media_links: Record<string, unknown>
   status: string
 }
 
@@ -214,7 +214,7 @@ export default function VendorSettings() {
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <div>
               <p className="text-yellow-800 font-medium">Account Pending Approval</p>
-              <p className="text-yellow-700 text-sm">Your profile changes will be saved but your store won't be visible to customers until approved.</p>
+              <p className="text-yellow-700 text-sm">Your profile changes will be saved but your store won&apos;t be visible to customers until approved.</p>
             </div>
           </div>
         )}

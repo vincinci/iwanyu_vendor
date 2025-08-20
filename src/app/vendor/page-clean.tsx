@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase-client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -177,7 +177,7 @@ export default function VendorDashboard() {
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <div>
               <p className="text-yellow-800 font-medium">Account Pending Approval</p>
-              <p className="text-yellow-700 text-sm">Your vendor account is currently under review. You can add products but they won't be visible to customers until approved.</p>
+              <p className="text-yellow-700 text-sm">Your vendor account is currently under review. You can add products but they won&apos;t be visible to customers until approved.</p>
             </div>
           </div>
         )}
