@@ -43,7 +43,7 @@ export function VendorAuth() {
               business_name: formData.businessName,
               user_type: 'vendor'
             },
-            emailRedirectTo: `${window.location.origin}/auth/verify-email`
+            emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/verify-email`
           }
         })
 

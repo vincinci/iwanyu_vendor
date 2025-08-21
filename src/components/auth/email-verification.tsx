@@ -85,7 +85,10 @@ export function EmailVerification() {
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email
+        email: email,
+        options: {
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/verify-email`
+        }
       })
 
       if (error) throw error
