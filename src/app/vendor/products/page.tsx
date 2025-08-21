@@ -18,7 +18,8 @@ import {
   Eye,
   Filter,
   Star,
-  Banknote
+  Banknote,
+  AlertCircle
 } from 'lucide-react'
 
 // Product interface
@@ -68,6 +69,7 @@ export default function VendorProducts() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [vendorId, setVendorId] = useState<string | null>(null)
+  const [vendorStatus, setVendorStatus] = useState<string>('pending')
   const supabase = createClient()
   
   const [searchTerm, setSearchTerm] = useState('')
@@ -91,7 +93,7 @@ export default function VendorProducts() {
         // Get vendor record
         const { data: vendor, error: vendorError } = await supabase
           .from('vendors')
-          .select('id')
+          .select('id, status')
           .eq('user_id', user.id)
           .single()
 
@@ -106,6 +108,7 @@ export default function VendorProducts() {
         }
 
         setVendorId(vendor.id)
+        setVendorStatus(vendor.status || 'pending')
 
         // Load products for this vendor
         const { data: products, error: productsError } = await supabase
@@ -292,6 +295,17 @@ export default function VendorProducts() {
         </div>
       ) : (
       <div className="space-y-6">
+        {/* Status Alert for Pending Vendors */}
+        {vendorStatus === 'pending' && (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-yellow-600" />
+            <div>
+              <p className="text-yellow-800 font-medium">Account Pending Approval</p>
+              <p className="text-yellow-700 text-sm">You can add and manage products, but they won&apos;t be visible to customers until your vendor account is approved.</p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

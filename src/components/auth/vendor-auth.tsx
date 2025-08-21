@@ -108,10 +108,10 @@ export function VendorAuth() {
             
             // Check vendor status
             if (vendor.status === 'pending') {
-              console.log('Vendor status is pending, redirecting to confirmation')
+              console.log('Vendor status is pending, redirecting to dashboard')
               // Set vendor session
               localStorage.setItem('iwanyu_vendor_session', 'true')
-              router.replace('/vendor/confirmation')
+              router.replace('/vendor')
             } else if (vendor.status === 'approved') {
               console.log('Vendor approved, redirecting to dashboard')
               // Set vendor session
@@ -119,7 +119,7 @@ export function VendorAuth() {
               router.replace('/vendor')
             } else if (vendor.status === 'rejected') {
               console.log('Vendor application was rejected')
-              throw new Error('Your vendor application was rejected. Please contact support for more information.')
+              router.replace('/vendor/confirmation')
             } else {
               console.log('Unknown vendor status, redirecting to onboarding')
               localStorage.setItem('iwanyu_vendor_session', 'true')

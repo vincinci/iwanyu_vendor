@@ -44,9 +44,9 @@ export default function VendorConfirmationPage() {
           return
         }
 
-        // Check if vendor is already approved
-        if (vendor.status === 'approved') {
-          // Already approved, redirect to dashboard
+        // Check if vendor is already approved or pending
+        if (vendor.status === 'approved' || vendor.status === 'pending') {
+          console.log('Vendor approved or pending, redirecting to dashboard')
           router.replace('/vendor')
           return
         }

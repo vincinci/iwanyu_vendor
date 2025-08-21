@@ -71,15 +71,11 @@ export default function VendorDashboard() {
         }
 
         // Check vendor status
-        if (vendorData.status === 'pending') {
-          console.log('Vendor status is pending, redirecting to confirmation')
+        if (vendorData.status === 'rejected') {
+          console.log('Vendor application was rejected, redirecting to confirmation')
           router.push('/vendor/confirmation')
           return
-        } else if (vendorData.status === 'rejected') {
-          console.log('Vendor application was rejected')
-          router.push('/vendor/confirmation')
-          return
-        } else if (vendorData.status !== 'approved') {
+        } else if (vendorData.status !== 'approved' && vendorData.status !== 'pending') {
           console.log('Vendor status unknown, redirecting to onboarding')
           router.push('/vendor/onboarding')
           return
@@ -199,7 +195,7 @@ export default function VendorDashboard() {
             <AlertCircle className="h-5 w-5 text-yellow-600" />
             <div>
               <p className="text-yellow-800 font-medium">Account Pending Approval</p>
-              <p className="text-yellow-700 text-sm">Your vendor account is currently under review. You can add products but they won&apos;t be visible to customers until approved.</p>
+              <p className="text-yellow-700 text-sm">Your vendor account is currently under review. You can explore the dashboard and add products, but they won&apos;t be visible to customers until your account is approved. We&apos;ll review your application within 24-48 hours.</p>
             </div>
           </div>
         )}
