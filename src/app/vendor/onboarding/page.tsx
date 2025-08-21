@@ -96,6 +96,14 @@ export default function VendorOnboarding() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Only allow submission on the final step
+    if (currentStep !== 5) {
+      console.log('Not on final step, moving to next step instead')
+      nextStep()
+      return
+    }
+    
     setLoading(true)
     setError('')
 
@@ -118,6 +126,7 @@ export default function VendorOnboarding() {
       if (!user) throw new Error('Not authenticated')
 
       let documentUrl = null
+      let logoUrl = null
 
       // Upload identification document if provided
       if (formData.identificationDocument) {
@@ -147,6 +156,34 @@ export default function VendorOnboarding() {
         }
       }
 
+      // Upload business logo if provided
+      if (formData.businessLogo) {
+        try {
+          const fileExt = formData.businessLogo.name.split('.').pop()
+          const fileName = `${user.id}/business-logo.${fileExt}`
+          
+          const { error: uploadError } = await supabase.storage
+            .from('vendor-profiles')
+            .upload(fileName, formData.businessLogo, {
+              upsert: true
+            })
+
+          if (uploadError) {
+            console.warn('Logo upload failed:', uploadError.message)
+            // Continue without logo for now
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('vendor-profiles')
+              .getPublicUrl(fileName)
+            
+            logoUrl = publicUrl
+          }
+        } catch (uploadError) {
+          console.warn('Logo upload error:', uploadError)
+          // Continue without logo for now
+        }
+      }
+
       // Create vendor profile
       const { error: insertError } = await supabase
         .from('vendors')
@@ -158,11 +195,15 @@ export default function VendorOnboarding() {
           phone_number: formData.phoneNumber,
           social_media_links: formData.socialMediaLinks,
           identification_document_url: documentUrl,
+          business_logo_url: logoUrl,
           status: 'pending'
         })
 
       if (insertError) throw insertError
 
+      // Show success message
+      alert('Registration completed successfully! You will be redirected to your dashboard.')
+      
       // Redirect to vendor dashboard
       router.push('/vendor')
     } catch (error: unknown) {
