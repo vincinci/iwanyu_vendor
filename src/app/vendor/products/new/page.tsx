@@ -332,12 +332,17 @@ export default function NewProduct() {
         ? formData.variants.reduce((total, variant) => total + (variant.stock || 0), 0)
         : parseInt(formData.stock) || 0
 
+      // For now, use the base price since variants table doesn't exist yet
+      const productPrice = formData.hasVariants && formData.variants.length > 0
+        ? formData.variants[0]?.price || parseFloat(formData.price)
+        : parseFloat(formData.price)
+
       // Create the product with image URLs
       console.log('Creating product with data:', {
         vendor_id: vendorId,
         name: formData.name,
         description: formData.description,
-        price: parseFloat(formData.price),
+        price: productPrice,
         category: formData.category,
         stock_quantity: stockQuantity,
         is_active: true,
@@ -350,7 +355,7 @@ export default function NewProduct() {
           vendor_id: vendorId,
           name: formData.name,
           description: formData.description,
-          price: parseFloat(formData.price),
+          price: productPrice,
           category: formData.category,
           stock_quantity: stockQuantity,
           is_active: true,
@@ -365,8 +370,16 @@ export default function NewProduct() {
 
       console.log('Product created successfully:', data)
       
-      // Show success message
-      alert('Product created successfully!')
+      // Show success message with variant info if applicable
+      if (formData.hasVariants && formData.variants.length > 0) {
+        alert(`Product created successfully! 
+        
+Note: You created ${formData.variants.length} variants. For now, the product has been created with combined stock (${stockQuantity} units) and will use the first variant's price (${productPrice} RWF). 
+
+Full variant support (individual colors/sizes with different prices) will be available soon!`)
+      } else {
+        alert('Product created successfully!')
+      }
       
       // Redirect to products page
       router.push('/vendor/products')
