@@ -14,21 +14,32 @@ export function VendorAuthGuard({ children }: VendorAuthGuardProps) {
 
   useEffect(() => {
     const checkVendorAuth = () => {
+      console.log('Checking vendor authentication...')
+      
       const vendorSession = localStorage.getItem('iwanyu_vendor_session')
       const adminSession = localStorage.getItem('iwanyu_admin_session')
       
+      console.log('Vendor session:', vendorSession)
+      console.log('Admin session:', adminSession)
+      
       if (vendorSession === 'true' || adminSession === 'true') {
+        console.log('User is authenticated')
         setIsAuthenticated(true)
+        setIsLoading(false)
       } else {
+        console.log('User not authenticated, redirecting to login')
         // Redirect to login if not authenticated
-        router.push('/auth/vendor')
+        router.replace('/auth/vendor')
         return
       }
-      
-      setIsLoading(false)
     }
 
-    checkVendorAuth()
+    // Add a small delay to prevent immediate redirect on page load
+    const timer = setTimeout(() => {
+      checkVendorAuth()
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [router])
 
   if (isLoading) {

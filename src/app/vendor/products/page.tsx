@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConfirmModal } from '@/components/modals/confirm-modal'
 import { createClient } from '@/lib/supabase-client'
+import { ALL_CATEGORIES } from '@/lib/categories'
 import { 
   Plus, 
   Search, 
@@ -381,10 +382,11 @@ export default function VendorProducts() {
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
                 <option value="">All Categories</option>
-                <option value="electronics">Electronics</option>
-                <option value="clothing">Clothing</option>
-                <option value="home">Home & Garden</option>
-                <option value="books">Books</option>
+                {ALL_CATEGORIES.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.label}
+                  </option>
+                ))}
               </select>
               <Button variant="outline">
                 <Filter className="mr-2 h-4 w-4" />

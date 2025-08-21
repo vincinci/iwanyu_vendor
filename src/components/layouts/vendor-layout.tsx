@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { VendorAuthGuard } from '@/components/auth/vendor-auth-guard'
@@ -98,17 +99,22 @@ export function VendorLayout({ children, vendorName = 'Vendor' }: VendorLayoutPr
       )}>
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
-            <Link href="/vendor" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
-                <span className="text-black font-bold text-lg">I</span>
+          <div className="flex h-16 items-center justify-center px-6 border-b border-gray-200">
+            <Link href="/vendor" className="flex items-center">
+              <div className="w-12 h-12 relative">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
               </div>
-              <span className="text-xl font-bold text-gray-900">Iwanyu</span>
             </Link>
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="lg:hidden absolute right-4"
               onClick={() => setSidebarOpen(false)}
             >
               <X className="h-5 w-5" />

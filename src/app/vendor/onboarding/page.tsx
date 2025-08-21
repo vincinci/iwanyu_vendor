@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Upload, Loader2 } from 'lucide-react'
+import { ALL_CATEGORIES } from '@/lib/categories'
 
 export default function VendorOnboarding() {
   const [currentStep, setCurrentStep] = useState(1)
@@ -168,8 +170,14 @@ export default function VendorOnboarding() {
       <div className="w-full max-w-2xl">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-yellow-400 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-black font-bold text-2xl">I</span>
+          <div className="w-24 h-24 relative mx-auto mb-6">
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={96}
+              height={96}
+              className="object-contain"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Complete Your Profile</h1>
           <p className="text-gray-600">Let&apos;s set up your vendor account</p>
@@ -284,17 +292,11 @@ export default function VendorOnboarding() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     >
                       <option value="">Select a category</option>
-                      <option value="electronics">📱 Electronics</option>
-                      <option value="clothing">👕 Clothing & Fashion</option>
-                      <option value="shoes">👟 Shoes & Accessories</option>
-                      <option value="home">🏠 Home & Garden</option>
-                      <option value="beauty">💄 Beauty & Personal Care</option>
-                      <option value="sports">⚽ Sports & Fitness</option>
-                      <option value="books">📚 Books & Media</option>
-                      <option value="toys">🧸 Toys & Games</option>
-                      <option value="food">🍔 Food & Beverages</option>
-                      <option value="automotive">🚗 Automotive</option>
-                      <option value="other">Other</option>
+                      {ALL_CATEGORIES.map((category) => (
+                        <option key={category.value} value={category.value}>
+                          {category.emoji} {category.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>

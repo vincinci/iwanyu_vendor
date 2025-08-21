@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { CSVExportModal } from '@/components/admin/csv-export-modal'
 import {
   Search,
   Filter,
@@ -23,7 +24,8 @@ import {
   Check,
   X,
   Archive,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react'
 
 interface AdminProduct {
@@ -60,6 +62,7 @@ export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [showExportModal, setShowExportModal] = useState(false)
   const [stats, setStats] = useState<ProductStats>({
     total: 0,
     active: 0,
@@ -179,10 +182,20 @@ export default function AdminProducts() {
             <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
             <p className="text-gray-600">Monitor and manage all products in the marketplace</p>
           </div>
-          <Button onClick={fetchProducts} disabled={loading}>
-            {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {loading ? 'Loading...' : 'Refresh'}
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowExportModal(true)}
+              className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button onClick={fetchProducts} disabled={loading}>
+              {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {loading ? 'Loading...' : 'Refresh'}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -295,6 +308,85 @@ export default function AdminProducts() {
                 <Button variant="outline">
                   <Filter className="mr-2 h-4 w-4" />
                   Filter ({filteredProducts.length})
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Export Options */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Quick Export:</span>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowExportModal(true)}
+                  className="text-xs"
+                >
+                  All Products
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { csvExporter } = await import('@/lib/csv-export')
+                      const recentProducts = await csvExporter.getRecentProducts(7)
+                      const csvContent = csvExporter.convertToCSV(recentProducts, 'detailed')
+                      const filename = csvExporter.generateFilename('recent_products_7_days', 'csv')
+                      csvExporter.downloadCSV(csvContent, filename)
+                    } catch (error) {
+                      console.error('Export failed:', error)
+                      alert('Export failed. Please try again.')
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  Last 7 Days
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { csvExporter } = await import('@/lib/csv-export')
+                      const recentProducts = await csvExporter.getRecentProducts(30)
+                      const csvContent = csvExporter.convertToCSV(recentProducts, 'detailed')
+                      const filename = csvExporter.generateFilename('recent_products_30_days', 'csv')
+                      csvExporter.downloadCSV(csvContent, filename)
+                    } catch (error) {
+                      console.error('Export failed:', error)
+                      alert('Export failed. Please try again.')
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  Last 30 Days
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { csvExporter } = await import('@/lib/csv-export')
+                      const activeProducts = await csvExporter.getProductsForExport({ status: 'active', sortBy: 'newest' })
+                      const csvContent = csvExporter.convertToCSV(activeProducts, 'shopify')
+                      const filename = csvExporter.generateFilename('active_products_shopify', 'csv')
+                      csvExporter.downloadCSV(csvContent, filename)
+                    } catch (error) {
+                      console.error('Export failed:', error)
+                      alert('Export failed. Please try again.')
+                    }
+                  }}
+                  className="text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                >
+                  Shopify Format
                 </Button>
               </div>
             </div>
@@ -500,6 +592,12 @@ export default function AdminProducts() {
             </CardContent>
           </Card>
         </div>
+
+        {/* CSV Export Modal */}
+        <CSVExportModal 
+          isOpen={showExportModal} 
+          onClose={() => setShowExportModal(false)} 
+        />
       </div>
     </AdminLayout>
   )

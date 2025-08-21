@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,8 +28,11 @@ export function VendorAuth() {
     setLoading(true)
     setError('')
 
+    console.log('Starting authentication for:', formData.email)
+
     try {
       if (isSignUp) {
+        console.log('Attempting sign up...')
         // Sign up new vendor
         const { data, error } = await supabase.auth.signUp({
           email: formData.email,
@@ -42,82 +46,87 @@ export function VendorAuth() {
           }
         })
 
-        if (error) throw error
+        if (error) {
+          console.error('Sign up error:', error)
+          throw error
+        }
 
         if (data.user) {
+          console.log('Sign up successful, redirecting to onboarding')
           // Redirect to onboarding
-          router.push('/vendor/onboarding')
+          router.replace('/vendor/onboarding')
         }
       } else {
+        console.log('Attempting sign in...')
         // Try Supabase authentication
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: formData.email,
-            password: formData.password
-          })
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        })
 
-          if (error) {
-            console.log('Supabase auth error:', error.message)
-            // If Supabase auth fails, try demo mode for any other credentials except admin
-            if (formData.email !== 'admin@iwanyu.com') {
-              console.log('Using demo mode fallback')
-              localStorage.setItem('iwanyu_vendor_session', 'true')
-              router.push('/vendor')
-              return
-            } else {
-              throw new Error('Invalid admin credentials')
-            }
+        if (error) {
+          console.log('Supabase auth error:', error.message)
+          throw error
+        }
+
+        if (data.user) {
+          console.log('User authenticated successfully:', data.user.email)
+          
+          // Check if this is an admin user
+          const { data: adminUser, error: adminError } = await supabase
+            .from('admin_users')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .single()
+
+          if (!adminError && adminUser) {
+            // Admin login
+            console.log('Admin user detected, redirecting to admin panel')
+            localStorage.setItem('iwanyu_admin_session', 'true')
+            localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
+            router.replace('/admin')
+            return
           }
 
-          if (data.user) {
-            // Check if this is an admin user
-            try {
-              const { data: adminUser, error: adminError } = await supabase
-                .from('admin_users')
-                .select('*')
-                .eq('user_id', data.user.id)
-                .single()
+          // Check if vendor profile exists
+          const { data: vendor, error: vendorError } = await supabase
+            .from('vendors')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .single()
 
-              if (!adminError && adminUser) {
-                // Admin login
-                localStorage.setItem('iwanyu_admin_session', 'true')
-                localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
-                router.push('/admin')
-                return
-              }
-            } catch (adminCheckError) {
-              console.log('Admin check failed:', adminCheckError)
-            }
-
-            // Check if vendor profile exists
-            const { data: vendor } = await supabase
-              .from('vendors')
-              .select('*')
-              .eq('user_id', data.user.id)
-              .single()
-
-            if (vendor) {
-              // Set vendor session
-              localStorage.setItem('iwanyu_vendor_session', 'true')
-              router.push('/vendor')
-            } else {
-              router.push('/vendor/onboarding')
-            }
+          if (!vendorError && vendor) {
+            console.log('Vendor profile found, redirecting to vendor dashboard')
+            // Set vendor session
+            localStorage.setItem('iwanyu_vendor_session', 'true')
+            router.replace('/vendor')
+          } else {
+            console.log('No vendor profile found, redirecting to onboarding')
+            localStorage.setItem('iwanyu_vendor_session', 'true')
+            router.replace('/vendor/onboarding')
           }
-        } catch (supabaseError) {
-          // If Supabase is completely unavailable, use demo mode
-          console.log('Supabase unavailable, using demo mode')
-          localStorage.setItem('iwanyu_vendor_session', 'true')
-          router.push('/vendor')
         }
       }
     } catch (error: unknown) {
-      // Only show error if it's not related to demo mode fallback
-      if (formData.email !== 'admin@iwanyu.com') {
-        const errorMessage = error instanceof Error ? error.message : 'Authentication failed'
-        console.error('Auth error:', errorMessage)
-        setError('Invalid login credentials')
+      const errorMessage = error instanceof Error ? error.message : 'Authentication failed'
+      console.error('Auth error:', errorMessage)
+      
+      // Show user-friendly error messages
+      let userFriendlyMessage = 'Unable to sign in. Please check your credentials and try again.'
+      
+      if (errorMessage.toLowerCase().includes('database')) {
+        userFriendlyMessage = 'Service temporarily unavailable. Please try again in a moment.'
+      } else if (errorMessage.toLowerCase().includes('invalid')) {
+        userFriendlyMessage = 'Invalid email or password. Please check your credentials.'
+      } else if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('connection')) {
+        userFriendlyMessage = 'Connection problem. Please check your internet and try again.'
+      } else if (errorMessage.toLowerCase().includes('email')) {
+        userFriendlyMessage = 'Account not found. Please check your email address or sign up for a new account.'
+      } else if (errorMessage.toLowerCase().includes('password')) {
+        userFriendlyMessage = 'Incorrect password. Please try again or reset your password.'
       }
+      
+      setError(userFriendlyMessage)
     } finally {
       setLoading(false)
     }
@@ -135,10 +144,16 @@ export function VendorAuth() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-yellow-400 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-black font-bold text-2xl">I</span>
+          <div className="w-24 h-24 relative mx-auto mb-6">
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={96}
+              height={96}
+              className="object-contain"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Iwanyu Vendor</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Vendor Portal</h1>
           <p className="text-gray-600">
             {isSignUp ? 'Create your vendor account' : 'Sign in to your dashboard'}
           </p>
@@ -149,7 +164,7 @@ export function VendorAuth() {
             <CardTitle>{isSignUp ? 'Create Account' : 'Welcome Back'}</CardTitle>
             <CardDescription>
               {isSignUp 
-                ? 'Start selling with Iwanyu today' 
+                ? 'Start selling today' 
                 : 'Enter your credentials to access your dashboard'
               }
             </CardDescription>
@@ -157,7 +172,12 @@ export function VendorAuth() {
           <CardContent>
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-red-600 text-sm">{error}</p>
+                <p className="text-red-600 text-sm font-medium">{error}</p>
+                {error.includes('Service temporarily unavailable') && (
+                  <p className="text-red-500 text-xs mt-1">
+                    🔄 Our servers are busy. Please wait a moment and try again.
+                  </p>
+                )}
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -257,15 +277,6 @@ export function VendorAuth() {
                   : "Don't have an account? Sign up"
                 }
               </button>
-            </div>
-
-            <div className="mt-4 text-center">
-              <a
-                href="/admin"
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
-              >
-                Admin Portal →
-              </a>
             </div>
           </CardContent>
         </Card>

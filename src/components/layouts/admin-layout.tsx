@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { AdminAuthGuard } from '@/components/auth/admin-auth-guard'
@@ -18,7 +19,8 @@ import {
   Menu,
   X,
   LogOut,
-  Shield
+  Shield,
+  Tag
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -43,6 +45,11 @@ const sidebarItems = [
     title: 'Products',
     href: '/admin/products',
     icon: Package
+  },
+  {
+    title: 'Categories',
+    href: '/admin/categories',
+    icon: Tag
   },
   {
     title: 'Orders',
@@ -116,17 +123,22 @@ export function AdminLayout({ children, adminName = 'Administrator' }: AdminLayo
         )}>
           <div className="flex h-full flex-col">
             {/* Logo */}
-            <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
-              <Link href="/admin" className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
-                  <span className="text-black font-bold text-lg">I</span>
+            <div className="flex h-16 items-center justify-center px-6 border-b border-gray-200">
+              <Link href="/admin" className="flex items-center">
+                <div className="w-12 h-12 relative">
+                  <Image
+                    src="/logo.png"
+                    alt="Logo"
+                    width={48}
+                    height={48}
+                    className="object-contain"
+                  />
                 </div>
-                <span className="text-xl font-bold text-gray-900">Iwanyu Management</span>
               </Link>
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden"
+                className="lg:hidden absolute right-4"
                 onClick={() => setSidebarOpen(false)}
               >
                 <X className="h-5 w-5" />

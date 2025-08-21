@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase-client'
+import { ALL_CATEGORIES } from '@/lib/categories'
+import { AddCategoryModal } from '@/components/modals/add-category-modal'
 import { 
   ArrowLeft, 
   Save, 
@@ -17,7 +19,8 @@ import {
   X, 
   Palette, 
   Ruler,
-  Loader2 
+  Loader2,
+  Plus
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -58,6 +61,8 @@ export default function NewProduct() {
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [selectedSizes, setSelectedSizes] = useState<string[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [availableCategories, setAvailableCategories] = useState(ALL_CATEGORIES)
   const maxImages = 5
   const supabase = createClient()
 
@@ -308,6 +313,26 @@ export default function NewProduct() {
     }
   }
 
+  const handleAddCategory = (newCategory: { value: string; label: string; emoji: string }) => {
+    // Add the new category to available categories
+    const categoryToAdd = {
+      value: newCategory.value,
+      label: newCategory.label,
+      emoji: newCategory.emoji,
+      description: `Custom category: ${newCategory.label}`
+    }
+    
+    setAvailableCategories(prev => [...prev, categoryToAdd])
+    
+    // Automatically select the new category
+    setFormData(prev => ({
+      ...prev,
+      category: newCategory.value
+    }))
+    
+    setShowAddCategoryModal(false)
+  }
+
   return (
     <VendorLayout>
       {/* Background overlay */}
@@ -424,24 +449,31 @@ export default function NewProduct() {
                     <label className="block text-sm font-medium text-gray-900 mb-2">
                       Category *
                     </label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      className={`w-full px-3 py-2 rounded-md border bg-white text-gray-900 ${errors.category ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                    >
-                      <option value="">Select category</option>
-                      <option value="electronics">📱 Electronics</option>
-                      <option value="clothing">👕 Clothing</option>
-                      <option value="shoes">👟 Shoes</option>
-                      <option value="accessories">💍 Accessories</option>
-                      <option value="food">🍽️ Food & Beverages</option>
-                      <option value="home">🏠 Home & Garden</option>
-                      <option value="beauty">💄 Beauty & Personal Care</option>
-                      <option value="sports">⚽ Sports & Outdoors</option>
-                      <option value="books">📚 Books & Media</option>
-                      <option value="toys">🧸 Toys & Games</option>
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        name="category"
+                        value={formData.category}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 rounded-md border bg-white text-gray-900 ${errors.category ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      >
+                        <option value="">Select category</option>
+                        {availableCategories.map((category) => (
+                          <option key={category.value} value={category.value}>
+                            {category.emoji} {category.label}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      {/* Add New Category Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCategoryModal(true)}
+                        className="w-full px-3 py-2 border border-dashed border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:border-gray-400 transition-colors flex items-center justify-center space-x-2 text-sm bg-gray-50 hover:bg-gray-100"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add New Category</span>
+                      </button>
+                    </div>
                     {errors.category && (
                       <p className="text-red-500 text-sm mt-1">{errors.category}</p>
                     )}
@@ -631,6 +663,13 @@ export default function NewProduct() {
           </form>
         </div>
       </div>
+      
+      {/* Add Category Modal */}
+      <AddCategoryModal
+        isOpen={showAddCategoryModal}
+        onClose={() => setShowAddCategoryModal(false)}
+        onCategoryAdded={handleAddCategory}
+      />
     </VendorLayout>
   )
 }
