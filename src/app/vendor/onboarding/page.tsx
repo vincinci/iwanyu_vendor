@@ -170,12 +170,12 @@ export default function VendorOnboarding() {
       <div className="w-full max-w-2xl">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-24 h-24 relative mx-auto mb-6">
+          <div className="w-32 h-32 relative mx-auto mb-6">
             <Image
               src="/logo.png"
               alt="Logo"
-              width={96}
-              height={96}
+              width={128}
+              height={128}
               className="object-contain"
             />
           </div>
