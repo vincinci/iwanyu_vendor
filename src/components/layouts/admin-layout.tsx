@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase-client'
 import { AdminAuthGuard } from '@/components/auth/admin-auth-guard'
 import { 
   LayoutDashboard, 
@@ -84,10 +84,7 @@ export function AdminLayout({ children, adminName = 'Administrator' }: AdminLayo
   const handleLogout = async () => {
     try {
       // Sign out from Supabase if authenticated
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      const supabase = createClient()
       await supabase.auth.signOut()
     } catch (error) {
       console.log('Supabase signout error (expected if not authenticated):', error)

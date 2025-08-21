@@ -57,31 +57,36 @@ export function VendorAuth() {
           })
 
           if (error) {
+            console.log('Supabase auth error:', error.message)
             // If Supabase auth fails, try demo mode for any other credentials except admin
             if (formData.email !== 'admin@iwanyu.com') {
-              console.log('Supabase auth failed, using demo mode')
+              console.log('Using demo mode fallback')
               localStorage.setItem('iwanyu_vendor_session', 'true')
               router.push('/vendor')
               return
             } else {
-              throw error
+              throw new Error('Invalid admin credentials')
             }
           }
 
           if (data.user) {
             // Check if this is an admin user
-            const { data: adminUser } = await supabase
-              .from('admin_users')
-              .select('*')
-              .eq('user_id', data.user.id)
-              .single()
+            try {
+              const { data: adminUser, error: adminError } = await supabase
+                .from('admin_users')
+                .select('*')
+                .eq('user_id', data.user.id)
+                .single()
 
-            if (adminUser) {
-              // Admin login
-              localStorage.setItem('iwanyu_admin_session', 'true')
-              localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
-              router.push('/admin')
-              return
+              if (!adminError && adminUser) {
+                // Admin login
+                localStorage.setItem('iwanyu_admin_session', 'true')
+                localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
+                router.push('/admin')
+                return
+              }
+            } catch (adminCheckError) {
+              console.log('Admin check failed:', adminCheckError)
             }
 
             // Check if vendor profile exists

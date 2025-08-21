@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase-client'
 
 interface AdminAuthGuardProps {
   children: React.ReactNode
@@ -13,18 +14,48 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   const router = useRouter()
 
   useEffect(() => {
-    const checkAdminAuth = () => {
-      const adminSession = localStorage.getItem('iwanyu_admin_session')
-      
-      if (adminSession === 'true') {
-        setIsAuthenticated(true)
-      } else {
-        // Redirect to vendor login if not authenticated as admin
+    const checkAdminAuth = async () => {
+      try {
+        const adminSession = localStorage.getItem('iwanyu_admin_session')
+        
+        if (adminSession === 'true') {
+          // Try to verify the session with Supabase if possible
+          try {
+            const supabase = createClient()
+            const { data: { user }, error } = await supabase.auth.getUser()
+            
+            if (user && !error) {
+              // Check if user is still an admin in database
+              const { data: adminUser } = await supabase
+                .from('admin_users')
+                .select('*')
+                .eq('user_id', user.id)
+                .single()
+              
+              if (adminUser) {
+                setIsAuthenticated(true)
+                setIsLoading(false)
+                return
+              }
+            }
+          } catch (supabaseError) {
+            console.log('Supabase verification failed, using session fallback')
+          }
+          
+          // Fallback to session-based auth if Supabase check fails
+          setIsAuthenticated(true)
+        } else {
+          // Redirect to vendor login if not authenticated as admin
+          router.push('/auth/vendor')
+          return
+        }
+        
+        setIsLoading(false)
+      } catch (error) {
+        console.error('Admin auth check error:', error)
+        setIsLoading(false)
         router.push('/auth/vendor')
-        return
       }
-      
-      setIsLoading(false)
     }
 
     checkAdminAuth()
