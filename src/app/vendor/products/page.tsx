@@ -6,7 +6,6 @@ import { VendorLayout } from '@/components/layouts/vendor-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SimpleProductModal } from '@/components/modals/simple-product-modal'
 import { ConfirmModal } from '@/components/modals/confirm-modal'
 import { createClient } from '@/lib/supabase-client'
 import { 
@@ -30,17 +29,6 @@ interface ProductVariant {
   stock: number
   option1?: string
   option2?: string
-}
-
-interface ProductData {
-  name: string
-  description: string
-  price: string
-  stock: string
-  category: string
-  hasVariants: boolean
-  variants: ProductVariant[]
-  images: File[]
 }
 
 interface Product {
@@ -83,9 +71,7 @@ export default function VendorProducts() {
   
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
   // Load vendor data and products
@@ -218,120 +204,18 @@ export default function VendorProducts() {
   })
 
   const handleAddProduct = () => {
-    setSelectedProduct(null)
-    setIsProductModalOpen(true)
+    // Redirect to dedicated add product page for consistency
+    window.location.href = '/vendor/products/new'
   }
 
   const handleEditProduct = (product: Product) => {
-    setSelectedProduct(product)
-    setIsProductModalOpen(true)
+    // Navigate to edit page (we'll create this later if needed)
+    window.location.href = `/vendor/products/${product.id}/edit`
   }
 
   const handleDeleteProduct = (product: Product) => {
     setProductToDelete(product)
     setIsDeleteModalOpen(true)
-  }
-
-  const handleSaveProduct = async (productData: ProductData) => {
-    if (!vendorId) {
-      console.error('No vendor ID available')
-      return
-    }
-
-    try {
-      if (selectedProduct) {
-        // Update existing product
-        const { error } = await supabase
-          .from('products')
-          .update({
-            name: productData.name,
-            description: productData.description,
-            price: parseFloat(productData.price),
-            category: productData.category,
-            stock_quantity: productData.hasVariants && productData.variants?.length 
-              ? productData.variants.reduce((total: number, variant: ProductVariant) => total + variant.stock, 0)
-              : parseInt(productData.stock),
-            is_active: true
-            // TODO: Add support for images and variants
-          })
-          .eq('id', selectedProduct.id)
-
-        if (error) {
-          console.error('Error updating product:', error)
-          return
-        }
-
-        // Update local state
-        setProducts(prev => prev.map(p => 
-          p.id === selectedProduct.id 
-            ? { 
-                ...p, 
-                name: productData.name,
-                description: productData.description,
-                price: parseFloat(productData.price),
-                category: productData.category,
-                hasVariants: productData.hasVariants,
-                variants: productData.variants,
-                images: [...productData.images],
-                stock: productData.hasVariants && productData.variants?.length 
-                  ? productData.variants.reduce((total: number, variant: ProductVariant) => total + variant.stock, 0)
-                  : parseInt(productData.stock)
-              } as Product
-            : p
-        ))
-      } else {
-        // Add new product
-        const { data, error } = await supabase
-          .from('products')
-          .insert({
-            vendor_id: vendorId,
-            name: productData.name,
-            description: productData.description,
-            price: parseFloat(productData.price),
-            category: productData.category,
-            stock_quantity: productData.hasVariants && productData.variants?.length 
-              ? productData.variants.reduce((total: number, variant: ProductVariant) => total + variant.stock, 0)
-              : parseInt(productData.stock),
-            is_active: true
-            // TODO: Add support for images and variants
-          })
-          .select()
-          .single()
-
-        if (error) {
-          console.error('Error creating product:', error)
-          return
-        }
-
-        if (data) {
-          // Add to local state
-          const newProduct: Product = {
-            id: data.id,
-            name: productData.name,
-            description: productData.description,
-            price: parseFloat(productData.price),
-            category: productData.category,
-            hasVariants: productData.hasVariants,
-            variants: productData.variants,
-            images: [...productData.images],
-            status: 'active' as const,
-            rating: 0,
-            sales: 0,
-            option1Name: undefined,
-            option2Name: undefined,
-            stock: productData.hasVariants && productData.variants?.length 
-              ? productData.variants.reduce((total: number, variant: ProductVariant) => total + variant.stock, 0)
-              : parseInt(productData.stock)
-          }
-          
-          setProducts(prev => [...prev, newProduct])
-        }
-      }
-      
-      console.log('Product saved successfully!')
-    } catch (error) {
-      console.error('Error saving product:', error)
-    }
   }
 
   const confirmDeleteProduct = async () => {
@@ -659,12 +543,6 @@ export default function VendorProducts() {
         )}
 
         {/* Modals */}
-        <SimpleProductModal
-          isOpen={isProductModalOpen}
-          onClose={() => setIsProductModalOpen(false)}
-          onSave={handleSaveProduct}
-        />
-
         <ConfirmModal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
