@@ -501,7 +501,11 @@ export default function AdminDashboard() {
                 <Button className="w-full" variant="outline" onClick={() => window.location.href = '/admin/vendors'}>
                   View All Vendors
                 </Button>
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full" 
+                  variant="outline"
+                  onClick={() => window.location.href = '/admin/vendors?filter=pending'}
+                >
                   Pending Approvals ({recentVendors.filter(v => v.status === 'pending').length})
                 </Button>
               </div>
@@ -518,7 +522,11 @@ export default function AdminDashboard() {
                 <Button className="w-full" variant="outline" onClick={() => window.location.href = '/admin/products'}>
                   View All Products
                 </Button>
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full" 
+                  variant="outline"
+                  onClick={() => window.location.href = '/admin/products?status=pending'}
+                >
                   Review Listings
                 </Button>
               </div>

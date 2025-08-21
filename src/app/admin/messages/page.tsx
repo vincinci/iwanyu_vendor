@@ -324,9 +324,18 @@ export default function AdminMessages() {
                   <option value="product">Product</option>
                   <option value="other">Other</option>
                 </select>
-                <Button variant="outline">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    // Clear all filters
+                    setSearchTerm('')
+                    setStatusFilter('')
+                    setPriorityFilter('')
+                    setCategoryFilter('')
+                  }}
+                >
                   <Filter className="mr-2 h-4 w-4" />
-                  Filter ({filteredMessages.length})
+                  Clear Filters ({filteredMessages.length})
                 </Button>
               </div>
             </div>

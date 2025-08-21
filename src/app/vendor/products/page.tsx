@@ -212,9 +212,15 @@ export default function VendorProducts() {
     window.location.href = '/vendor/products/new'
   }
 
+  const handleViewProduct = (product: Product) => {
+    // For now, show product details in a modal or navigate to detail page
+    alert(`Product Details:\nName: ${product.name}\nPrice: ${product.price} RWF\nCategory: ${product.category}\nStock: ${product.stock}\nStatus: ${product.status}`)
+  }
+
   const handleEditProduct = (product: Product) => {
-    // Navigate to edit page (we'll create this later if needed)
-    window.location.href = `/vendor/products/${product.id}/edit`
+    // For now, navigate to the new product page with edit mode
+    // We can create a dedicated edit page later
+    window.location.href = `/vendor/products/new?edit=${product.id}`
   }
 
   const handleDeleteProduct = (product: Product) => {
@@ -402,9 +408,16 @@ export default function VendorProducts() {
                   </option>
                 ))}
               </select>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  // Clear all filters
+                  setSearchTerm('')
+                  setSelectedCategory('')
+                }}
+              >
                 <Filter className="mr-2 h-4 w-4" />
-                Filter
+                Clear Filters
               </Button>
             </div>
           </CardContent>
@@ -494,7 +507,12 @@ export default function VendorProducts() {
                 )}
                 
                 <div className="flex gap-2 mt-4">
-                  <Button size="sm" variant="outline" className="flex-1">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleViewProduct(product)}
+                  >
                     <Eye className="mr-1 h-3 w-3" />
                     View
                   </Button>

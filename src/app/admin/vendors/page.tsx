@@ -59,6 +59,13 @@ export default function AdminVendors() {
   const supabase = createClient()
 
   useEffect(() => {
+    // Check for URL parameters
+    const urlParams = new URLSearchParams(window.location.search)
+    const filterParam = urlParams.get('filter')
+    if (filterParam === 'pending') {
+      setStatusFilter('pending')
+    }
+    
     fetchVendors()
   }, [])
 
@@ -249,9 +256,16 @@ export default function AdminVendors() {
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
-                <Button variant="outline">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    // Clear all filters
+                    setSearchTerm('')
+                    setStatusFilter('')
+                  }}
+                >
                   <Filter className="mr-2 h-4 w-4" />
-                  Filter ({filteredVendors.length})
+                  Clear Filters ({filteredVendors.length})
                 </Button>
               </div>
             </div>
