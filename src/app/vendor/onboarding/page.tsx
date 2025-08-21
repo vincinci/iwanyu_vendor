@@ -143,8 +143,8 @@ export default function VendorOnboarding() {
 
       if (insertError) throw insertError
 
-      // Redirect to vendor dashboard
-      router.push('/vendor')
+      // Redirect to confirmation page
+      router.push('/vendor/confirmation')
     } catch (error: unknown) {
       console.error('Full onboarding error:', error)
       let errorMessage = 'An error occurred during onboarding'

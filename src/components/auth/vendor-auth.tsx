@@ -96,10 +96,27 @@ export function VendorAuth() {
             .single()
 
           if (!vendorError && vendor) {
-            console.log('Vendor profile found, redirecting to vendor dashboard')
-            // Set vendor session
-            localStorage.setItem('iwanyu_vendor_session', 'true')
-            router.replace('/vendor')
+            console.log('Vendor profile found, checking status...')
+            
+            // Check vendor status
+            if (vendor.status === 'pending') {
+              console.log('Vendor status is pending, redirecting to confirmation')
+              // Set vendor session
+              localStorage.setItem('iwanyu_vendor_session', 'true')
+              router.replace('/vendor/confirmation')
+            } else if (vendor.status === 'approved') {
+              console.log('Vendor approved, redirecting to dashboard')
+              // Set vendor session
+              localStorage.setItem('iwanyu_vendor_session', 'true')
+              router.replace('/vendor')
+            } else if (vendor.status === 'rejected') {
+              console.log('Vendor application was rejected')
+              throw new Error('Your vendor application was rejected. Please contact support for more information.')
+            } else {
+              console.log('Unknown vendor status, redirecting to onboarding')
+              localStorage.setItem('iwanyu_vendor_session', 'true')
+              router.replace('/vendor/onboarding')
+            }
           } else {
             console.log('No vendor profile found, redirecting to onboarding')
             localStorage.setItem('iwanyu_vendor_session', 'true')

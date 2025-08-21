@@ -63,6 +63,21 @@ export default function VendorDashboard() {
           return
         }
 
+        // Check vendor status
+        if (vendorData.status === 'pending') {
+          console.log('Vendor status is pending, redirecting to confirmation')
+          router.push('/vendor/confirmation')
+          return
+        } else if (vendorData.status === 'rejected') {
+          console.log('Vendor application was rejected')
+          router.push('/vendor/confirmation')
+          return
+        } else if (vendorData.status !== 'approved') {
+          console.log('Vendor status unknown, redirecting to onboarding')
+          router.push('/vendor/onboarding')
+          return
+        }
+
         setVendor(vendorData)
         await fetchVendorStats(vendorData.id)
 
