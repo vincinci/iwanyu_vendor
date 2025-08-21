@@ -281,10 +281,16 @@ export default function NewProduct() {
       if (formData.images.length > 0) {
         console.log('Uploading images...')
         
+        // Get current user for folder naming (required by RLS policy)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          throw new Error('User not authenticated')
+        }
+        
         for (let i = 0; i < formData.images.length; i++) {
           const file = formData.images[i]
           const fileExt = file.name.split('.').pop()
-          const fileName = `${vendorId}/${Date.now()}-${i}.${fileExt}`
+          const fileName = `${user.id}/${Date.now()}-${i}.${fileExt}`
           
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('vendor-products')
