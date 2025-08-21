@@ -33,7 +33,7 @@ export function VendorAuth() {
     try {
       if (isSignUp) {
         console.log('Attempting sign up...')
-        // Sign up new vendor
+        // Sign up new vendor with email confirmation required
         const { data, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -42,7 +42,8 @@ export function VendorAuth() {
               full_name: formData.fullName,
               business_name: formData.businessName,
               user_type: 'vendor'
-            }
+            },
+            emailRedirectTo: `${window.location.origin}/auth/verify-email`
           }
         })
 
@@ -52,9 +53,9 @@ export function VendorAuth() {
         }
 
         if (data.user) {
-          console.log('Sign up successful, redirecting to onboarding')
-          // Redirect to onboarding
-          router.replace('/vendor/onboarding')
+          console.log('Sign up successful, redirecting to email verification')
+          // Redirect to email verification page
+          router.replace('/auth/verify-email')
         }
       } else {
         console.log('Attempting sign in...')
@@ -71,6 +72,13 @@ export function VendorAuth() {
 
         if (data.user) {
           console.log('User authenticated successfully:', data.user.email)
+          
+          // Check if email is verified
+          if (!data.user.email_confirmed_at) {
+            console.log('Email not verified, redirecting to verification page')
+            router.replace('/auth/verify-email')
+            return
+          }
           
           // Check if this is an admin user
           const { data: adminUser, error: adminError } = await supabase

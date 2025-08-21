@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase-client'
@@ -43,6 +43,26 @@ export default function VendorOnboarding() {
   })
   const router = useRouter()
   const supabase = createClient()
+
+  // Check email verification on component mount
+  useEffect(() => {
+    const checkEmailVerification = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        router.push('/auth/vendor')
+        return
+      }
+      
+      // If email is not verified, redirect to verification page
+      if (!user.email_confirmed_at) {
+        router.push('/auth/verify-email')
+        return
+      }
+    }
+
+    checkEmailVerification()
+  }, [router, supabase])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

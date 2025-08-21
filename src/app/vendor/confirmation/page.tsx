@@ -24,6 +24,13 @@ export default function VendorConfirmationPage() {
           return
         }
 
+        // Check email verification
+        if (!user.email_confirmed_at) {
+          console.log('Email not verified, redirecting to verification page')
+          router.replace('/auth/verify-email')
+          return
+        }
+
         // Get vendor data
         const { data: vendor, error: vendorError } = await supabase
           .from('vendors')

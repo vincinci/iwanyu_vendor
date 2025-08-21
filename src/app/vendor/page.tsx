@@ -49,6 +49,13 @@ export default function VendorDashboard() {
           return
         }
 
+        // Check email verification
+        if (!user.email_confirmed_at) {
+          console.log('Email not verified, redirecting to verification page')
+          router.push('/auth/verify-email')
+          return
+        }
+
         // Get vendor profile
         const { data: vendorData, error: vendorError } = await supabase
           .from('vendors')
