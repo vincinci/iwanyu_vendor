@@ -310,12 +310,15 @@ export default function NewProduct() {
 
   return (
     <VendorLayout>
-      <div className="container mx-auto py-6 px-4">
+      {/* Background overlay */}
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 -z-10"></div>
+      
+      <div className="container mx-auto py-6 px-4 relative">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Link href="/vendor/products">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="bg-white">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Products
               </Button>
@@ -327,7 +330,7 @@ export default function NewProduct() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Card>
+            <Card className="bg-white/80 backdrop-blur-sm border border-white/20 shadow-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
@@ -349,7 +352,7 @@ export default function NewProduct() {
                       value={formData.name}
                       onChange={handleInputChange}
                       placeholder="Enter product name"
-                      className={errors.name ? 'border-red-500' : ''}
+                      className={`bg-white text-gray-900 ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {errors.name && (
                       <p className="text-red-500 text-sm mt-1">{errors.name}</p>
@@ -366,7 +369,8 @@ export default function NewProduct() {
                       onChange={handleInputChange}
                       rows={4}
                       placeholder="Product description"
-                      className={errors.description ? 'border-red-500' : ''}
+                      className={`bg-white text-gray-900 ${errors.description ? 'border-red-500' : 'border-gray-300'}`}
+                      style={{ backgroundColor: 'white', color: '#111827' }}
                     />
                     {errors.description && (
                       <p className="text-red-500 text-sm mt-1">{errors.description}</p>
@@ -388,7 +392,7 @@ export default function NewProduct() {
                           updateVariants(selectedColors, selectedSizes)
                         }}
                         placeholder="1999"
-                        className={errors.price ? 'border-red-500' : ''}
+                        className={`bg-white text-gray-900 ${errors.price ? 'border-red-500' : 'border-gray-300'}`}
                       />
                       {errors.price && (
                         <p className="text-red-500 text-sm mt-1">{errors.price}</p>
@@ -408,7 +412,7 @@ export default function NewProduct() {
                           updateVariants(selectedColors, selectedSizes)
                         }}
                         placeholder="100"
-                        className={errors.stock ? 'border-red-500' : ''}
+                        className={`bg-white text-gray-900 ${errors.stock ? 'border-red-500' : 'border-gray-300'}`}
                       />
                       {errors.stock && (
                         <p className="text-red-500 text-sm mt-1">{errors.stock}</p>
@@ -424,7 +428,7 @@ export default function NewProduct() {
                       name="category"
                       value={formData.category}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 rounded-md border ${errors.category ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      className={`w-full px-3 py-2 rounded-md border bg-white text-gray-900 ${errors.category ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                     >
                       <option value="">Select category</option>
                       <option value="electronics">📱 Electronics</option>
