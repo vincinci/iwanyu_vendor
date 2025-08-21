@@ -275,6 +275,20 @@ export default function NewProduct() {
     setLoading(true)
 
     try {
+      // Validate required fields before processing
+      if (!formData.name.trim()) {
+        throw new Error('Product name is required')
+      }
+      if (!formData.price || isNaN(parseFloat(formData.price))) {
+        throw new Error('Valid price is required')
+      }
+      if (!formData.category) {
+        throw new Error('Product category is required')
+      }
+      if (!vendorId) {
+        throw new Error('Vendor information not found. Please try again.')
+      }
+
       let imageUrls: string[] = []
 
       // Upload images to Supabase storage if any images are selected
@@ -314,7 +328,22 @@ export default function NewProduct() {
         console.log('Images uploaded successfully:', imageUrls)
       }
 
+      const stockQuantity = formData.hasVariants && formData.variants.length > 0
+        ? formData.variants.reduce((total, variant) => total + (variant.stock || 0), 0)
+        : parseInt(formData.stock) || 0
+
       // Create the product with image URLs
+      console.log('Creating product with data:', {
+        vendor_id: vendorId,
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        stock_quantity: stockQuantity,
+        is_active: true,
+        images: imageUrls.length > 0 ? imageUrls : null
+      })
+
       const { data, error } = await supabase
         .from('products')
         .insert({
@@ -323,18 +352,15 @@ export default function NewProduct() {
           description: formData.description,
           price: parseFloat(formData.price),
           category: formData.category,
-          stock_quantity: formData.hasVariants && formData.variants.length > 0
-            ? formData.variants.reduce((total, variant) => total + variant.stock, 0)
-            : parseInt(formData.stock),
+          stock_quantity: stockQuantity,
           is_active: true,
           images: imageUrls.length > 0 ? imageUrls : null
         })
         .select()
 
       if (error) {
-        console.error('Error creating product:', error)
-        alert('Error creating product. Please try again.')
-        return
+        console.error('Database error creating product:', error)
+        throw new Error(`Database error: ${error.message}`)
       }
 
       console.log('Product created successfully:', data)
@@ -347,7 +373,13 @@ export default function NewProduct() {
       
     } catch (error) {
       console.error('Error creating product:', error)
-      alert('An unexpected error occurred. Please try again.')
+      
+      // More specific error handling
+      if (error instanceof Error) {
+        alert(`Error: ${error.message}`)
+      } else {
+        alert('An unexpected error occurred. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
