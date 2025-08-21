@@ -5,26 +5,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'nghtzhkfsobkpdsoyovn.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'seller.iwanyu.store',
-      },
-      {
-        protocol: 'https',
-        hostname: 'iwanyu.store',
-      },
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-      }
-    ],
+    domains: ['localhost', 'seller.iwanyu.store', 'iwanyu.store'],
     unoptimized: false,
   },
   experimental: {
