@@ -67,7 +67,15 @@ export default function AdminVendors() {
       setLoading(true)
       console.log('Fetching vendors...')
 
-      // Fetch all vendors (without email for now)
+      // Test connection first
+      const { data: testData, error: testError } = await supabase
+        .from('vendors')
+        .select('count')
+        .limit(1)
+      
+      console.log('Connection test:', { testData, testError })
+
+      // Fetch all vendors
       const { data: vendorsData, error } = await supabase
         .from('vendors')
         .select('*')
@@ -77,6 +85,9 @@ export default function AdminVendors() {
 
       if (error) {
         console.error('Error fetching vendors:', error)
+        // Set empty data but don't return early, let user see the error
+        setVendors([])
+        setStats({ total: 0, approved: 0, pending: 0, rejected: 0 })
         return
       }
 
@@ -101,6 +112,8 @@ export default function AdminVendors() {
 
     } catch (error) {
       console.error('Error fetching vendors:', error)
+      setVendors([])
+      setStats({ total: 0, approved: 0, pending: 0, rejected: 0 })
     } finally {
       setLoading(false)
     }
@@ -242,6 +255,38 @@ export default function AdminVendors() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Debug Information */}
+        <Card className="bg-blue-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-blue-800">Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p><strong>Loading:</strong> {loading.toString()}</p>
+                <p><strong>Total Vendors:</strong> {vendors.length}</p>
+                <p><strong>Filtered Vendors:</strong> {filteredVendors.length}</p>
+                <p><strong>Search Term:</strong> "{searchTerm}"</p>
+                <p><strong>Status Filter:</strong> "{statusFilter}"</p>
+              </div>
+              <div>
+                <p><strong>Stats Total:</strong> {stats.total}</p>
+                <p><strong>Stats Approved:</strong> {stats.approved}</p>
+                <p><strong>Stats Pending:</strong> {stats.pending}</p>
+                <p><strong>Stats Rejected:</strong> {stats.rejected}</p>
+              </div>
+            </div>
+            {vendors.length > 0 && (
+              <div className="mt-4">
+                <p><strong>First Vendor:</strong></p>
+                <pre className="text-xs bg-white p-2 rounded border overflow-auto">
+                  {JSON.stringify(vendors[0], null, 2)}
+                </pre>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -275,6 +275,40 @@ export default function NewProduct() {
     setLoading(true)
 
     try {
+      let imageUrls: string[] = []
+
+      // Upload images to Supabase storage if any images are selected
+      if (formData.images.length > 0) {
+        console.log('Uploading images...')
+        
+        for (let i = 0; i < formData.images.length; i++) {
+          const file = formData.images[i]
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${vendorId}/${Date.now()}-${i}.${fileExt}`
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('vendor-products')
+            .upload(fileName, file)
+
+          if (uploadError) {
+            console.error('Error uploading image:', uploadError)
+            throw new Error(`Failed to upload image: ${uploadError.message}`)
+          }
+
+          // Get public URL for the uploaded image
+          const { data: urlData } = supabase.storage
+            .from('vendor-products')
+            .getPublicUrl(fileName)
+
+          if (urlData?.publicUrl) {
+            imageUrls.push(urlData.publicUrl)
+          }
+        }
+        
+        console.log('Images uploaded successfully:', imageUrls)
+      }
+
+      // Create the product with image URLs
       const { data, error } = await supabase
         .from('products')
         .insert({
@@ -286,8 +320,8 @@ export default function NewProduct() {
           stock_quantity: formData.hasVariants && formData.variants.length > 0
             ? formData.variants.reduce((total, variant) => total + variant.stock, 0)
             : parseInt(formData.stock),
-          is_active: true
-          // TODO: Add support for images and variants in database
+          is_active: true,
+          images: imageUrls.length > 0 ? imageUrls : null
         })
         .select()
 
