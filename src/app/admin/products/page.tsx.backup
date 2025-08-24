@@ -23,34 +23,27 @@ import {
   Check,
   X,
   Archive,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react'
 
 interface AdminProduct {
   id: string
   name: string
   description: string
-  price: number
+  price: string
   vendor_id: string
   vendor?: {
     full_name: string
     business_name: string
-    email: string
   }
   category: string
-  status: 'active' | 'inactive' | 'pending_review' | 'rejected'
+  is_active: boolean
   stock_quantity: number
   images: string[]
   created_at: string
   updated_at: string
-  tags: string[]
   sku?: string
-  weight?: number
-  dimensions?: {
-    length: number
-    width: number
-    height: number
-  }
 }
 
 interface ProductStats {
@@ -92,10 +85,9 @@ export default function AdminProducts() {
         .from('products')
         .select(`
           *,
-          vendor:profiles!vendor_id (
+          vendor:vendors!vendor_id (
             full_name,
-            business_name,
-            email
+            business_name
           )
         `)
         .order('created_at', { ascending: false })
@@ -108,10 +100,10 @@ export default function AdminProducts() {
       // Calculate stats
       const stats = {
         total: products.length,
-        active: products.filter(p => p.status === 'active').length,
-        pending: products.filter(p => p.status === 'pending_review').length,
-        inactive: products.filter(p => p.status === 'inactive' || p.status === 'rejected').length,
-        total_value: products.reduce((sum, p) => sum + (p.price * p.stock_quantity), 0),
+        active: products.filter(p => p.is_active === true).length,
+        pending: products.filter(p => p.is_active === false).length,
+        inactive: 0, // No inactive status in our schema
+        total_value: products.reduce((sum, p) => sum + (parseFloat(p.price) * p.stock_quantity), 0),
         out_of_stock: products.filter(p => p.stock_quantity === 0).length
       }
       
@@ -123,18 +115,18 @@ export default function AdminProducts() {
     }
   }
 
-  const handleStatusUpdate = async (productId: string, newStatus: AdminProduct['status']) => {
+  const handleStatusUpdate = async (productId: string, newStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('products')
-        .update({ status: newStatus })
+        .update({ is_active: newStatus })
         .eq('id', productId)
 
       if (error) throw error
 
       // Update local state
       setProducts(prev => prev.map(product => 
-        product.id === productId ? { ...product, status: newStatus } : product
+        product.id === productId ? { ...product, is_active: newStatus } : product
       ))
       
       // Refresh stats
@@ -144,18 +136,11 @@ export default function AdminProducts() {
     }
   }
 
-  const getStatusBadge = (status: AdminProduct['status']) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>
-      case 'pending_review':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending Review</Badge>
-      case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
-      default:
-        return <Badge variant="secondary">{status}</Badge>
+  const getStatusBadge = (isActive: boolean) => {
+    if (isActive) {
+      return <Badge className="bg-green-100 text-green-800">Active</Badge>
+    } else {
+      return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
     }
   }
 
@@ -176,7 +161,9 @@ export default function AdminProducts() {
       product.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesStatus = !statusFilter || product.status === statusFilter
+    const matchesStatus = !statusFilter || 
+      (statusFilter === 'active' && product.is_active) ||
+      (statusFilter === 'inactive' && !product.is_active)
     const matchesCategory = !categoryFilter || product.category === categoryFilter
 
     return matchesSearch && matchesStatus && matchesCategory
@@ -193,10 +180,20 @@ export default function AdminProducts() {
             <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
             <p className="text-gray-600">Monitor and manage all products in the marketplace</p>
           </div>
-          <Button onClick={fetchProducts} disabled={loading}>
-            {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {loading ? 'Loading...' : 'Refresh'}
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowExportModal(true)}
+              className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button onClick={fetchProducts} disabled={loading}>
+              {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {loading ? 'Loading...' : 'Refresh'}
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -294,9 +291,7 @@ export default function AdminProducts() {
                 >
                   <option value="">All Statuses</option>
                   <option value="active">Active</option>
-                  <option value="pending_review">Pending Review</option>
                   <option value="inactive">Inactive</option>
-                  <option value="rejected">Rejected</option>
                 </select>
                 <select 
                   className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -311,6 +306,85 @@ export default function AdminProducts() {
                 <Button variant="outline">
                   <Filter className="mr-2 h-4 w-4" />
                   Filter ({filteredProducts.length})
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Export Options */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Quick Export:</span>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowExportModal(true)}
+                  className="text-xs"
+                >
+                  All Products
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { csvExporter } = await import('@/lib/csv-export')
+                      const recentProducts = await csvExporter.getRecentProducts(7)
+                      const csvContent = csvExporter.convertToCSV(recentProducts, 'detailed')
+                      const filename = csvExporter.generateFilename('recent_products_7_days', 'csv')
+                      csvExporter.downloadCSV(csvContent, filename)
+                    } catch (error) {
+                      console.error('Export failed:', error)
+                      alert('Export failed. Please try again.')
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  Last 7 Days
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { csvExporter } = await import('@/lib/csv-export')
+                      const recentProducts = await csvExporter.getRecentProducts(30)
+                      const csvContent = csvExporter.convertToCSV(recentProducts, 'detailed')
+                      const filename = csvExporter.generateFilename('recent_products_30_days', 'csv')
+                      csvExporter.downloadCSV(csvContent, filename)
+                    } catch (error) {
+                      console.error('Export failed:', error)
+                      alert('Export failed. Please try again.')
+                    }
+                  }}
+                  className="text-xs"
+                >
+                  Last 30 Days
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const { csvExporter } = await import('@/lib/csv-export')
+                      const activeProducts = await csvExporter.getProductsForExport({ status: 'active', sortBy: 'newest' })
+                      const csvContent = csvExporter.convertToCSV(activeProducts, 'shopify')
+                      const filename = csvExporter.generateFilename('active_products_shopify', 'csv')
+                      csvExporter.downloadCSV(csvContent, filename)
+                    } catch (error) {
+                      console.error('Export failed:', error)
+                      alert('Export failed. Please try again.')
+                    }
+                  }}
+                  className="text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                >
+                  Shopify Format
                 </Button>
               </div>
             </div>
@@ -369,7 +443,7 @@ export default function AdminProducts() {
                             <h3 className="font-medium text-gray-900">
                               {product.name || 'Unnamed Product'}
                             </h3>
-                            {getStatusBadge(product.status)}
+                            {getStatusBadge(product.is_active)}
                             {getStockBadge(product.stock_quantity)}
                           </div>
                           
@@ -425,47 +499,26 @@ export default function AdminProducts() {
                           Edit
                         </Button>
                         
-                        {product.status === 'pending_review' && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleStatusUpdate(product.id, 'active')}
-                            >
-                              <Check className="mr-1 h-3 w-3" />
-                              Approve
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              onClick={() => handleStatusUpdate(product.id, 'rejected')}
-                            >
-                              <X className="mr-1 h-3 w-3" />
-                              Reject
-                            </Button>
-                          </>
+                        {!product.is_active && (
+                          <Button 
+                            size="sm" 
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => handleStatusUpdate(product.id, true)}
+                          >
+                            <Check className="mr-1 h-3 w-3" />
+                            Activate
+                          </Button>
                         )}
                         
-                        {product.status === 'active' && (
+                        {product.is_active && (
                           <Button 
                             size="sm" 
                             variant="outline" 
                             className="text-orange-600 hover:text-orange-700"
-                            onClick={() => handleStatusUpdate(product.id, 'inactive')}
+                            onClick={() => handleStatusUpdate(product.id, false)}
                           >
                             <Archive className="mr-1 h-3 w-3" />
                             Deactivate
-                          </Button>
-                        )}
-                        
-                        {(product.status === 'inactive' || product.status === 'rejected') && (
-                          <Button 
-                            size="sm" 
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() => handleStatusUpdate(product.id, 'active')}
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Activate
                           </Button>
                         )}
                         
@@ -537,6 +590,7 @@ export default function AdminProducts() {
             </CardContent>
           </Card>
         </div>
+
       </div>
     </AdminLayout>
   )
