@@ -28,10 +28,15 @@ interface RecentVendor {
 
 interface RecentMessage {
   id: string
-  vendor_name: string
+  vendor_id: string
   subject: string
+  content?: string
+  status: string
   created_at: string
-  read: boolean
+  vendor?: {
+    business_name: string
+    full_name: string
+  }
 }
 
 export default function AdminDashboard() {
@@ -52,92 +57,144 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
+    
+    // Set up real-time polling every 30 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
-      console.log('Fetching complete database state...')
+      console.log('Fetching real-time dashboard data...')
 
-      // Fetch ALL vendor data
-      const { count: vendorCount } = await supabase
+      // Fetch vendor data with detailed counts
+      const { data: vendorData, count: vendorCount } = await supabase
         .from('vendors')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'exact' })
 
-      // Fetch ALL product data
-      const { count: productCount } = await supabase
+      // Get vendor status breakdown
+      const vendorStatusBreakdown = vendorData?.reduce((acc, vendor) => {
+        acc[vendor.status] = (acc[vendor.status] || 0) + 1
+        return acc
+      }, {} as Record<string, number>) || {}
+
+      // Fetch product data
+      const { data: productData, count: productCount } = await supabase
         .from('products')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'exact' })
 
-      // Fetch ALL order data  
-      const { count: orderCount } = await supabase
+      // Get active products only
+      const activeProducts = productData?.filter(p => p.is_active) || []
+
+      // Fetch order data
+      const { data: orderData, count: orderCount } = await supabase
         .from('orders')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'exact' })
 
-      // Fetch ALL message data
-      const { count: messageCount } = await supabase
+      // Calculate total revenue from completed orders
+      const totalRevenue = orderData?.reduce((sum, order) => {
+        if (order.status === 'delivered' || order.status === 'completed') {
+          return sum + parseFloat(order.total_amount || 0)
+        }
+        return sum
+      }, 0) || 0
+
+      // Get pending orders
+      const pendingOrders = orderData?.filter(o => o.status === 'pending') || []
+
+      // Fetch message data
+      const { data: messageData, count: messageCount } = await supabase
         .from('messages')
-        .select('*', { count: 'exact', head: true })
+        .select('*', { count: 'exact' })
 
-      // Fetch recent vendors (last 5) with all details
-      const { data: vendors } = await supabase
+      // Get unread messages
+      const unreadMessages = messageData?.filter(m => m.status === 'unread') || []
+
+      // Fetch recent vendors (last 10) with user details
+      const { data: recentVendorData } = await supabase
         .from('vendors')
-        .select('*')
+        .select(`
+          *,
+          user:user_id (
+            email,
+            phone
+          )
+        `)
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(10)
 
-      // Fetch recent products (last 5) 
-      const { data: products } = await supabase
-        .from('products')
-        .select('*')
+      // Fetch recent messages (last 10)
+      const { data: recentMessageData } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          vendor:vendor_id (
+            business_name,
+            full_name
+          )
+        `)
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(10)
 
-      // Fetch recent orders
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5)
+      // Get today's statistics
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayISO = today.toISOString()
 
-      // Fetch today's new data
-      const today = new Date().toISOString().split('T')[0]
       const { count: newVendorsToday } = await supabase
         .from('vendors')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', today)
+        .gte('created_at', todayISO)
 
       const { count: newProductsToday } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', today)
+        .gte('created_at', todayISO)
 
       const { count: newOrdersToday } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
-        .gte('created_at', today)
+        .gte('created_at', todayISO)
 
-      console.log('Database state:', {
-        vendors: vendorCount,
-        products: productCount,
-        orders: orderCount,
-        messages: messageCount,
-        recentVendors: vendors,
-        recentProducts: products,
-        recentOrders: orders
+      console.log('Real-time dashboard data:', {
+        vendors: {
+          total: vendorCount,
+          breakdown: vendorStatusBreakdown,
+          newToday: newVendorsToday
+        },
+        products: {
+          total: productCount,
+          active: activeProducts.length,
+          newToday: newProductsToday
+        },
+        orders: {
+          total: orderCount,
+          pending: pendingOrders.length,
+          newToday: newOrdersToday,
+          revenue: totalRevenue
+        },
+        messages: {
+          total: messageCount,
+          unread: unreadMessages.length
+        }
       })
 
       setStats({
         totalVendors: vendorCount || 0,
-        activeProducts: productCount || 0,
-        pendingOrders: orderCount || 0,
-        totalRevenue: 0, // Will calculate from orders when there are orders
+        activeProducts: activeProducts.length || 0,
+        pendingOrders: pendingOrders.length || 0,
+        totalRevenue: totalRevenue,
         newVendorsToday: newVendorsToday || 0,
         newProductsToday: newProductsToday || 0,
-        unreadMessages: messageCount || 0
+        unreadMessages: unreadMessages.length || 0
       })
 
-      setRecentVendors(vendors || [])
+      setRecentVendors(recentVendorData || [])
+      setRecentMessages(recentMessageData || [])
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -223,22 +280,26 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600">Overview of ALL vendors and marketplace activity (Admin Access)</p>
+            <p className="text-gray-600">Real-time overview of vendors and marketplace activity</p>
+            <div className="flex items-center mt-1 text-sm text-green-600">
+              <Activity className="h-3 w-3 mr-1" />
+              <span>Live data • Updates every 30 seconds</span>
+            </div>
           </div>
           <Button onClick={fetchDashboardData} disabled={loading}>
             {loading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
-            {loading ? 'Loading...' : 'Refresh Data'}
+            {loading ? 'Refreshing...' : 'Refresh Now'}
           </Button>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Total Vendors
               </CardTitle>
-              <Users className="h-4 w-4 text-yellow-600" />
+              <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.totalVendors}</div>
@@ -253,7 +314,7 @@ export default function AdminDashboard() {
               <CardTitle className="text-sm font-medium text-gray-600">
                 Active Products
               </CardTitle>
-              <Package className="h-4 w-4 text-yellow-600" />
+              <Package className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.activeProducts}</div>
@@ -268,7 +329,7 @@ export default function AdminDashboard() {
               <CardTitle className="text-sm font-medium text-gray-600">
                 Pending Orders
               </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-yellow-600" />
+              <ShoppingCart className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.pendingOrders}</div>
@@ -281,9 +342,26 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
+                Total Revenue
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">
+                {loading ? '...' : `$${stats.totalRevenue.toFixed(2)}`}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                From completed orders
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
                 Unread Messages
               </CardTitle>
-              <MessageSquare className="h-4 w-4 text-yellow-600" />
+              <MessageSquare className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.unreadMessages}</div>
@@ -467,8 +545,8 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Platform Messages</CardTitle>
-              <CardDescription>Recent vendor communications</CardDescription>
+              <CardTitle>Recent Messages</CardTitle>
+              <CardDescription>Latest vendor communications</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -476,13 +554,45 @@ export default function AdminDashboard() {
                   <Activity className="h-6 w-6 animate-spin text-gray-400" />
                   <span className="ml-2 text-gray-500">Loading messages...</span>
                 </div>
-              ) : (
+              ) : recentMessages.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No messages yet</p>
                   <p className="text-sm text-gray-400 mt-1">
                     Vendor messages will appear here
                   </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentMessages.map((message) => (
+                    <div key={message.id} className="flex items-start justify-between p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {message.subject || 'No Subject'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          From: {message.vendor?.business_name || message.vendor?.full_name || 'Unknown Vendor'}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(message.created_at).toLocaleDateString()} at {new Date(message.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {message.status === 'unread' ? (
+                          <Badge className="bg-red-100 text-red-800">Unread</Badge>
+                        ) : (
+                          <Badge className="bg-green-100 text-green-800">Read</Badge>
+                        )}
+                        <Button 
+                          size="sm" 
+                          onClick={() => window.location.href = `/admin/messages/${message.id}`}
+                          className="text-xs"
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

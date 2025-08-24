@@ -67,6 +67,13 @@ export default function AdminVendors() {
     }
     
     fetchVendors()
+    
+    // Set up real-time polling every 30 seconds
+    const interval = setInterval(() => {
+      fetchVendors()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchVendors = async () => {

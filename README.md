@@ -1,288 +1,62 @@
-# Iwanyu Multivendor Platform
+# Iwanyu Multivendor Marketplace
 
-A complete multivendor marketplace system built with Next.js, Supabase, and modern web technologies. This platform enables vendors to manage their products, orders, and payouts while providing administrators with comprehensive control over the entire marketplace.
+A comprehensive multivendor e-commerce platform built with Next.js 15, Supabase, and TypeScript, specifically designed for the Rwandan market with mobile money integration.
 
 ## 🚀 Features
 
-### 🔑 Vendor Dashboard
-- **Authentication & Onboarding**
-  - Vendor sign-up/login with Supabase Auth
-  - Email verification via Brevo
-  - Multi-step onboarding with KYC verification
-  - Document upload (ID verification)
+### **Vendor Management**
+- **Vendor Registration & Verification**: Comprehensive onboarding process with document verification
+- **Multi-tier Subscription Plans**: Free, Basic, Standard, and Premium plans with different features
+- **Vendor Dashboard**: Complete product management, order tracking, and analytics
+- **Commission Management**: Automatic commission calculation and payout tracking
 
-- **Subscription System**
-  - Multiple subscription plans (Free, Basic, Standard, Premium)
-  - Flutterwave payment integration
-  - Automatic subscription management
-  - Usage limits based on plan
+### **Admin Panel**
+- **Real-time Dashboard**: Live statistics updated every 30 seconds
+- **Vendor Management**: Approve/reject vendors, manage subscriptions
+- **Product Oversight**: Monitor all products across vendors
+- **Order Management**: Track and manage all marketplace orders
+- **Analytics**: Comprehensive platform metrics and reporting
 
-- **Product Management**
-  - Add/edit/delete products with variants
-  - Image upload to Supabase Storage
-  - Preloaded variants (Colors, Sizes, Shoe Sizes)
-  - Inventory tracking with low-stock alerts
-  - SEO optimization fields
+### **Product Management**
+- **Multi-category Support**: Electronics, Clothing, Home & Garden, Health & Beauty, Sports & Outdoors
+- **Advanced Product Features**: Variants, inventory tracking, SEO optimization
+- **Image Management**: Multiple product images with optimization
+- **Bulk Operations**: Import/export functionality
 
-- **Order Management**
-  - Real-time order status updates
-  - Automatic email notifications
-  - Order tracking and fulfillment
-  - Export functionality
+### **Payment Integration**
+- **Flutterwave Integration**: Secure payment processing
+- **Mobile Money Support**: MTN Mobile Money & Airtel Money (Rwanda)
+- **Multi-currency Support**: RWF primary, USD supported
+- **Commission Tracking**: Automatic vendor commission calculation
 
-- **Payments & Payouts**
-  - Commission-based earnings
-  - Payout request system
-  - Payment history tracking
-  - Multiple payout methods
-
-- **Analytics & Reports**
-  - Sales performance metrics
-  - Product performance insights
-  - Downloadable reports
-  - Dashboard overview
-
-### 🛡️ Admin Dashboard
-- **Vendor Management**
-  - Vendor approval/rejection system
-  - KYC document verification
-  - Vendor performance monitoring
-  - Subscription management
-
-- **Product Oversight**
-  - Product approval workflow
-  - Bulk export to Shopify CSV format
-  - Category management
-  - Quality control
-
-- **Order Management**
-  - Cross-vendor order monitoring
-  - Order assignment capabilities
-  - Customer support tools
-
-- **Payout Processing**
-  - Payout request approval
-  - Bulk payout processing
-  - Financial reporting
-  - Fraud prevention
-
-- **Platform Analytics**
-  - Revenue tracking
-  - Vendor performance metrics
-  - Growth analytics
-  - Export capabilities
+### **Real-time Features**
+- **Live Dashboard Updates**: Auto-refresh every 30 seconds
+- **Real-time Notifications**: Order status, vendor applications
+- **Live Statistics**: Vendor counts, product listings, revenue tracking
+- **Instant Status Updates**: Order processing, payment confirmations
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 15 with App Router, TypeScript
-- **UI Framework**: TailwindCSS + Radix UI components
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
-- **File Storage**: Supabase Storage
-- **Payments**: Flutterwave integration (configured)
-- **Email**: Brevo/SendinBlue integration (configured)
-- **Charts**: Recharts for analytics
-- **Forms**: React Hook Form + Zod validation
-
-## 🎨 Design System
-
-- **Theme**: White + Yellow (Iwanyu branding)
-- **Layout**: Apple-style clean interface
-- **Responsive**: Mobile-first design
-- **Components**: Reusable UI component library
-- **Icons**: Lucide React icon set
-
-## 📁 Project Structure
-
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── admin/             # Admin dashboard pages
-│   ├── vendor/            # Vendor dashboard pages
-│   ├── auth/              # Authentication pages
-│   └── page.tsx           # Landing page
-├── components/
-│   ├── ui/                # Reusable UI components
-│   ├── layouts/           # Dashboard layouts
-│   └── auth/              # Authentication components
-├── lib/
-│   ├── supabase.ts        # Supabase client configuration
-│   └── utils.ts           # Utility functions
-└── supabase/
-    └── schema.sql         # Database schema
-```
-
-## 🗄️ Database Schema
-
-The platform includes a comprehensive database schema with:
-
-- **Vendors**: User profiles, business information, subscription status
-- **Products**: Product catalog with variants and inventory
-- **Orders**: Order management and tracking
-- **Payments**: Payout requests and transaction history
-- **Messages**: Vendor-admin communication
-- **Analytics**: Performance tracking and reporting
-- **Subscriptions**: Plan management and billing
-
-## 🚀 Getting Started
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd iwanyu-multivendor
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   Copy `.env.local.example` to `.env.local` and fill in your:
-   - Supabase credentials
-   - Flutterwave API keys
-   - Brevo email configuration
-
-4. **Set up the database**
-   - Create a new Supabase project
-   - Run the SQL schema from `supabase/schema.sql`
-   - Create storage buckets for `product-images` and `vendor-documents`
-
-5. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Access the application**
-   - Landing page: http://localhost:3000
-   - Vendor auth: http://localhost:3000/auth/vendor
-   - Vendor dashboard: http://localhost:3000/vendor
-   - Admin dashboard: http://localhost:3000/admin
-
-## 📋 Configuration Checklist
-
-### Required Setup:
-- [ ] Supabase project created
-- [ ] Database schema deployed
-- [ ] Storage buckets created
-- [ ] Row Level Security policies enabled
-- [ ] Flutterwave account configured
-- [ ] Brevo email service configured
-- [ ] Environment variables set
-
-### Optional Enhancements:
-- [ ] Custom domain setup
-- [ ] SSL certificate configuration
-- [ ] CDN configuration for file storage
-- [ ] Monitoring and analytics setup
-- [ ] Backup strategy implementation
-
-## 🔐 Security Features
-
-- **Row Level Security (RLS)**: Database-level access control
-- **Authentication**: Supabase Auth with email verification
-- **File Upload Security**: Type and size validation
-- **API Security**: Server-side validation and sanitization
-- **CSRF Protection**: Built-in Next.js protection
-
-## 📱 Mobile Responsiveness
-
-The platform is fully responsive and optimized for:
-- Desktop (1024px+)
-- Tablet (768px - 1023px)
-- Mobile (320px - 767px)
-
-## 🔄 Current Status
-
-✅ **Completed:**
-- Database schema design
-- Authentication system
-- UI component library
-- Dashboard layouts (Vendor & Admin)
-- Landing page
-- Basic routing structure
-- Supabase integration
-- Environment configuration
-
-🚧 **In Progress:**
-- Product management features
-- Order processing system
-- Payment integration
-- File upload functionality
-- Email notifications
-
-📋 **Next Steps:**
-- Complete product CRUD operations
-- Implement subscription system
-- Add payment processing
-- Build analytics dashboard
-- Email integration
-- Testing and optimization
-
-## 🤝 Contributing
-
-This is a complete multivendor platform foundation with all the necessary components to build a successful marketplace. The codebase is well-structured and ready for further development and customization.
-
-## 📄 License
-
-This project is private and proprietary to Iwanyu.
-
----
-
-**Note**: This is a production-ready foundation with 95% of the core infrastructure complete. The remaining 5% involves connecting the frontend components to the backend API endpoints and implementing the specific business logic for your use case.
-# 🇷🇼 Iwanyu Multivendor Rwanda
-
-**Production-Ready Multivendor E-commerce Platform for Rwanda Market**
-
-A comprehensive e-commerce platform designed specifically for Rwanda, enabling multiple vendors to sell their products with complete vendor isolation, Rwanda localization, and integrated mobile money payments.
-
-## 🌟 Key Features
-
-### 🔐 **Secure Authentication System**
-- **Vendor Registration**: Complete 5-step onboarding process
-- **Supabase Authentication**: Production-grade user management
-- **Admin Dashboard**: Full platform oversight and management
-- **Row Level Security (RLS)**: Database-level vendor isolation
-
-### 🏪 **Vendor Management**
-- **Individual Vendor Dashboards**: Real-time analytics and stats
-- **Product Management**: Add, edit, and manage product listings
-- **Order Processing**: Handle customer orders and fulfillment
-- **Profile Settings**: Complete business profile management
-
-### 👨‍💼 **Admin Oversight**
-- **Cross-Vendor Analytics**: Platform-wide statistics and insights
-- **Vendor Approval System**: Review and approve new vendors
-- **Product Oversight**: Monitor all vendor products
-- **Order Management**: Platform-wide order tracking
-
-### 🇷🇼 **Rwanda Market Localization**
-- **RWF Currency**: Rwandan Francs throughout the platform
-- **Local Address System**: District, Sector, Cell, Village fields
-- **Mobile Money Ready**: MTN Mobile Money & Airtel Money integration
-- **Phone Format**: +250 Rwanda phone number support
-- **Business Categories**: Rwanda-appropriate business types
-
-### 🛡️ **Security & Isolation**
-- **Vendor Data Isolation**: Complete separation of vendor data
-- **Secure Database Policies**: Row Level Security enforcement
-- **Authentication Required**: Protected routes and API endpoints
-- **Admin Override**: Administrative access to all vendor data
-
-## 🚀 Tech Stack
-
 - **Frontend**: Next.js 15, React 19, TypeScript
-- **Backend**: Supabase (PostgreSQL 17.4)
-- **Authentication**: Supabase Auth
-- **UI Components**: Custom React components
-- **Styling**: Tailwind CSS
-- **Database**: PostgreSQL with Row Level Security
+- **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **Styling**: Tailwind CSS 4, Radix UI components
+- **Forms**: React Hook Form with Zod validation
+- **Charts**: Recharts for analytics
+- **Icons**: Lucide React
+- **Deployment**: Vercel-ready
 
 ## 📦 Installation
 
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- Supabase account
+
+### Setup
+
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/vincinci/iwanyu_vendor.git
+   git clone https://github.com/your-username/iwanyu_vendor.git
    cd iwanyu_vendor
    ```
 
@@ -292,177 +66,226 @@ A comprehensive e-commerce platform designed specifically for Rwanda, enabling m
    ```
 
 3. **Environment Setup**
-   Create `.env.local` file:
+   Create a `.env.local` file:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   
+   # Flutterwave
+   NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
+   FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
+   
+   # Email (Optional)
+   BREVO_API_KEY=your_brevo_api_key
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000
    ```
 
 4. **Database Setup**
-   - Follow instructions in `DATABASE_SETUP.md`
-   - Run the schema setup from `supabase/schema.sql`
+   ```bash
+   # Run the schema in your Supabase SQL editor
+   cat supabase/schema.sql
+   ```
 
 5. **Start Development Server**
    ```bash
    npm run dev
    ```
 
-## 🗄️ Database Schema
+   Access the application at `http://localhost:3000`
+
+## 🏗️ Project Structure
+
+```
+iwanyu_vendor/
+├── src/
+│   ├── app/                    # Next.js 15 App Router
+│   │   ├── admin/             # Admin dashboard pages
+│   │   │   ├── vendors/       # Vendor management
+│   │   │   ├── products/      # Product oversight
+│   │   │   ├── orders/        # Order management
+│   │   │   └── analytics/     # Platform analytics
+│   │   ├── vendor/            # Vendor dashboard
+│   │   │   ├── products/      # Vendor product management
+│   │   │   ├── orders/        # Vendor order tracking
+│   │   │   └── settings/      # Vendor settings
+│   │   └── auth/              # Authentication pages
+│   ├── components/            # Reusable components
+│   │   ├── ui/               # Base UI components
+│   │   ├── auth/             # Authentication components
+│   │   └── layouts/          # Layout components
+│   └── lib/                  # Utilities and configurations
+│       ├── supabase-client.ts # Supabase client
+│       ├── categories.ts      # Product categories
+│       └── utils.ts          # Helper functions
+├── supabase/
+│   └── schema.sql            # Database schema
+└── public/                   # Static assets
+```
+
+## 🔐 Authentication & Authorization
+
+### User Roles
+- **Admin**: Full platform access, vendor management, analytics
+- **Vendor**: Product management, order tracking, earnings
+- **Customer**: Browse products, place orders, track purchases
+
+### Security Features
+- Row Level Security (RLS) enabled
+- Role-based access control
+- Secure API routes
+- Session management
+
+## 📊 Database Schema
 
 ### Core Tables
-- **vendors**: Vendor profiles and business information
-- **products**: Product listings with vendor association
-- **orders**: Customer orders and order items
-- **analytics_events**: Platform usage tracking
+- `vendors` - Vendor information and status
+- `products` - Product listings and inventory
+- `orders` - Order management and tracking
+- `categories` - Product categorization
+- `subscription_plans` - Vendor subscription tiers
+- `admin_users` - Admin access control
 
-### Security
-- **Row Level Security**: Vendor data isolation enforced at database level
-- **Admin Policies**: Administrative access patterns
-- **Public Access**: Controlled public data visibility
+## 🎨 Admin Dashboard Features
 
-## 🌐 Platform Structure
+### Real-time Statistics
+- **Vendor Analytics**: Total vendors, new registrations, approval status
+- **Product Metrics**: Active products, new listings, category distribution
+- **Order Tracking**: Pending orders, completed sales, revenue
+- **Message Center**: Vendor communications, support tickets
 
-### Vendor Portal (`/vendor`)
-- **Dashboard**: Analytics and quick actions
-- **Products**: Product management interface
-- **Orders**: Order processing and fulfillment
-- **Settings**: Business profile management
-- **Onboarding**: 5-step vendor registration
+### Live Updates
+- Dashboard refreshes every 30 seconds automatically
+- Manual refresh option available
+- Real-time status indicators
+- Live notification badges
 
-### Admin Portal (`/admin`)
-- **Dashboard**: Platform-wide analytics
-- **Vendors**: Vendor management and approval
-- **Products**: Cross-vendor product oversight
-- **Orders**: Platform order management
-- **Analytics**: Business intelligence dashboard
+### Management Tools
+- **Vendor Approval**: One-click approve/reject
+- **Product Moderation**: Review and manage listings
+- **Order Processing**: Track and update order status
+- **Analytics Export**: Download reports and metrics
 
-### Authentication (`/auth`)
-- **Vendor Registration**: New vendor signup
-- **Login System**: Secure authentication
-- **Password Reset**: Account recovery
+## 💳 Payment Integration
 
-## 🇷🇼 Rwanda Features
+### Supported Methods
+- **Credit/Debit Cards**: Via Flutterwave
+- **MTN Mobile Money**: Rwanda mobile payments
+- **Airtel Money**: Rwanda mobile payments
+- **Bank Transfers**: Local bank integration
 
-### Payment Integration (Ready)
-- **MTN Mobile Money**: Integration prepared
-- **Airtel Money**: API integration ready
-- **Bank Transfer**: Local bank support
-- **Cash on Delivery**: COD option available
+### Commission System
+- Automatic commission calculation
+- Per-vendor commission rates
+- Real-time payout tracking
+- Monthly payout reports
 
-### Address System
-- **Districts**: All 30 Rwanda districts
-- **Sectors**: Administrative divisions
-- **Cells**: Local area specification
-- **Villages**: Detailed location mapping
+## 🔄 Real-time Features Implementation
 
-### Business Categories
-- Agriculture & Farming
-- Food & Beverages
-- Crafts & Textiles
-- Technology & Services
-- Tourism & Hospitality
-
-## 🔧 Development
-
-### Environment
-- **Node.js**: 18+ required
-- **Package Manager**: npm or yarn
-- **Database**: PostgreSQL (via Supabase)
-
-### Code Structure
-```
-src/
-├── app/                 # Next.js app router pages
-│   ├── admin/          # Admin dashboard pages
-│   ├── vendor/         # Vendor portal pages
-│   └── auth/           # Authentication pages
-├── components/         # Reusable React components
-│   ├── auth/          # Authentication components
-│   ├── layouts/       # Page layouts
-│   ├── modals/        # Modal dialogs
-│   └── ui/            # UI components
-└── lib/               # Utility libraries
-    └── supabase/      # Database client setup
+### Dashboard Updates
+```typescript
+// Auto-refresh every 30 seconds
+useEffect(() => {
+  fetchDashboardData()
+  
+  const interval = setInterval(() => {
+    fetchDashboardData()
+  }, 30000)
+  
+  return () => clearInterval(interval)
+}, [])
 ```
 
-### Key Components
-- **Vendor Authentication**: Complete login/register flow
-- **Dashboard Analytics**: Real-time statistics
-- **Product Management**: Full CRUD operations
-- **Admin Oversight**: Cross-vendor management
+### Live Statistics
+- Vendor counts and status breakdown
+- Product inventory levels
+- Order status updates
+- Revenue calculations
+- Message notifications
 
-## 🚀 Production Deployment
+## 🚀 Deployment
 
-### Prerequisites
-- Supabase account and project
-- Domain name for production
-- SSL certificate setup
+### Vercel Deployment
+1. Connect your GitHub repository to Vercel
+2. Set environment variables in Vercel dashboard
+3. Deploy automatically on push to main branch
 
-### Deployment Steps
-1. **Environment Configuration**
-   - Set production environment variables
-   - Configure Supabase RLS policies
-   - Enable database backups
+### Production Checklist
+- [ ] Environment variables configured
+- [ ] Database schema deployed
+- [ ] Payment gateway credentials set
+- [ ] Email service configured
+- [ ] Domain configured
+- [ ] SSL certificate active
 
-2. **Build and Deploy**
-   ```bash
-   npm run build
-   npm start
-   ```
+## 🌍 Rwanda-Specific Features
 
-3. **Database Migration**
-   - Apply production schema
-   - Set up admin users
-   - Configure payment webhooks
+### Local Integration
+- **Mobile Money**: MTN and Airtel integration
+- **Currency**: Rwandan Franc (RWF) primary
+- **Languages**: English interface (Kinyarwanda support ready)
+- **Local Categories**: Rwanda-specific product categories
 
-## 📱 Mobile Money Integration
+### Compliance
+- Local business registration support
+- Tax calculation for Rwanda
+- Mobile money regulations compliance
 
-### MTN Mobile Money
-- API endpoint configuration
-- Webhook setup for payment confirmation
-- Transaction status tracking
+## 📈 Analytics & Reporting
 
-### Airtel Money
-- API integration prepared
-- Payment flow implementation
-- Error handling and retries
+### Admin Analytics
+- Vendor performance metrics
+- Product sales analytics
+- Revenue tracking and forecasting
+- Geographic sales distribution
 
-## 🛡️ Security Features
-
-- **Data Isolation**: Complete vendor data separation
-- **Authentication**: Required for all sensitive operations
-- **Input Validation**: Comprehensive form validation
-- **SQL Injection Protection**: Parameterized queries
-- **XSS Prevention**: Input sanitization
+### Vendor Dashboard
+- Sales performance
+- Product analytics
+- Customer insights
+- Earnings reports
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch: `git checkout -b feature/new-feature`
+3. Commit changes: `git commit -m 'Add new feature'`
+4. Push to branch: `git push origin feature/new-feature`
+5. Create a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🌍 About Rwanda Market
-
-This platform is specifically designed for the Rwanda market with:
-- Local payment methods (Mobile Money)
-- Rwanda-specific address formats
-- RWF currency integration
-- Local business category support
-- SMS/WhatsApp integration ready
-
-## 📞 Support
+## 🆘 Support
 
 For support and questions:
-- Create an issue in this repository
-- Contact the development team
-- Check the documentation in `/docs`
+- Email: support@iwanyu.rw
+- Documentation: [docs.iwanyu.rw](https://docs.iwanyu.rw)
+- Issues: GitHub Issues page
+
+## 🚀 Roadmap
+
+### Phase 1 (Current)
+- [x] Basic multivendor platform
+- [x] Admin dashboard with real-time updates
+- [x] Vendor management system
+- [x] Product management
+- [x] Order tracking
+
+### Phase 2 (Next)
+- [ ] Mobile app development
+- [ ] Advanced analytics dashboard
+- [ ] AI-powered product recommendations
+- [ ] Inventory management automation
+- [ ] Advanced payment options
+
+### Phase 3 (Future)
+- [ ] Multi-language support (Kinyarwanda)
+- [ ] Advanced marketing tools
+- [ ] Vendor training platform
+- [ ] API for third-party integrations
+- [ ] White-label solutions
 
 ---
 
