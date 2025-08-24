@@ -14,11 +14,7 @@ import {
   Banknote,
   Eye,
   Edit,
-  Trash2,
   Activity,
-  ShoppingCart,
-  Star,
-  Calendar,
   User,
   Check,
   X,
@@ -29,34 +25,43 @@ import {
 interface AdminProduct {
   id: string
   name: string
-  description: string
+  description: string | null
   price: number
   vendor_id: string
+  category_id: string | null
   vendor?: {
     full_name: string
     business_name: string
-    email: string
   }
-  category: string
-  status: 'active' | 'inactive' | 'pending_review' | 'rejected'
-  stock_quantity: number
-  images: string[]
+  category?: {
+    name: string
+    slug: string
+  }
+  sku?: string | null
+  barcode?: string | null
+  weight?: number | null
+  is_active: boolean
+  is_featured: boolean
+  inventory_quantity: number
+  low_stock_threshold: number
+  compare_at_price?: number | null
+  requires_shipping: boolean
+  inventory_tracking: boolean
+  meta_title?: string | null
+  meta_description?: string | null
   created_at: string
   updated_at: string
-  tags: string[]
-  sku?: string
-  weight?: number
-  dimensions?: {
-    length: number
-    width: number
-    height: number
-  }
+  product_images?: {
+    id: string
+    image_url: string
+    alt_text?: string | null
+    sort_order: number
+  }[]
 }
 
 interface ProductStats {
   total: number
   active: number
-  pending: number
   inactive: number
   total_value: number
   out_of_stock: number
@@ -71,7 +76,6 @@ export default function AdminProducts() {
   const [stats, setStats] = useState<ProductStats>({
     total: 0,
     active: 0,
-    pending: 0,
     inactive: 0,
     total_value: 0,
     out_of_stock: 0
@@ -93,21 +97,37 @@ export default function AdminProducts() {
   const fetchProducts = async () => {
     try {
       setLoading(true)
+      console.log('Fetching products with vendor and category information...')
       
-      // Fetch products with vendor information
+      // Fetch products with vendor and category information
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
-          vendor:profiles!vendor_id (
+          vendor:vendors (
             full_name,
-            business_name,
-            email
+            business_name
+          ),
+          category:categories (
+            name,
+            slug
+          ),
+          product_images (
+            id,
+            image_url,
+            alt_text,
+            sort_order
           )
         `)
         .order('created_at', { ascending: false })
 
-      if (productsError) throw productsError
+      console.log('Products query result:', { productsData, productsError })
+
+      if (productsError) {
+        console.error('Error fetching products:', productsError)
+        setProducts([])
+        return
+      }
 
       const products = productsData || []
       setProducts(products)
@@ -115,33 +135,34 @@ export default function AdminProducts() {
       // Calculate stats
       const stats = {
         total: products.length,
-        active: products.filter(p => p.status === 'active').length,
-        pending: products.filter(p => p.status === 'pending_review').length,
-        inactive: products.filter(p => p.status === 'inactive' || p.status === 'rejected').length,
-        total_value: products.reduce((sum, p) => sum + (p.price * p.stock_quantity), 0),
-        out_of_stock: products.filter(p => p.stock_quantity === 0).length
+        active: products.filter(p => p.is_active).length,
+        inactive: products.filter(p => !p.is_active).length,
+        total_value: products.reduce((sum, p) => sum + (p.price * p.inventory_quantity), 0),
+        out_of_stock: products.filter(p => p.inventory_quantity === 0).length
       }
       
       setStats(stats)
+      console.log('Products loaded:', { count: products.length, stats })
     } catch (error) {
       console.error('Error fetching products:', error)
+      setProducts([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleStatusUpdate = async (productId: string, newStatus: AdminProduct['status']) => {
+  const handleStatusUpdate = async (productId: string, isActive: boolean) => {
     try {
       const { error } = await supabase
         .from('products')
-        .update({ status: newStatus })
+        .update({ is_active: isActive })
         .eq('id', productId)
 
       if (error) throw error
 
       // Update local state
       setProducts(prev => prev.map(product => 
-        product.id === productId ? { ...product, status: newStatus } : product
+        product.id === productId ? { ...product, is_active: isActive } : product
       ))
       
       // Refresh stats
@@ -151,44 +172,42 @@ export default function AdminProducts() {
     }
   }
 
-  const getStatusBadge = (status: AdminProduct['status']) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>
-      case 'pending_review':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending Review</Badge>
-      case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
-      default:
-        return <Badge variant="secondary">{status}</Badge>
+  const getStatusBadge = (isActive: boolean) => {
+    if (isActive) {
+      return <Badge className="bg-green-100 text-green-800">Active</Badge>
+    } else {
+      return <Badge className="bg-red-100 text-red-800">Inactive</Badge>
     }
   }
 
   const getStockBadge = (quantity: number) => {
     if (quantity === 0) {
       return <Badge className="bg-red-100 text-red-800">Out of Stock</Badge>
-    } else if (quantity < 10) {
+    } else if (quantity <= 10) {
       return <Badge className="bg-yellow-100 text-yellow-800">Low Stock</Badge>
     } else {
       return <Badge className="bg-green-100 text-green-800">In Stock</Badge>
     }
   }
 
+  // Filter products based on search and filters
   const filteredProducts = products.filter(product => {
     const matchesSearch = !searchTerm || 
-      product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.vendor?.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesStatus = !statusFilter || product.status === statusFilter
-    const matchesCategory = !categoryFilter || product.category === categoryFilter
-
+    const matchesStatus = !statusFilter || 
+      (statusFilter === 'active' && product.is_active) ||
+      (statusFilter === 'inactive' && !product.is_active)
+    
+    const matchesCategory = !categoryFilter || product.category?.slug === categoryFilter
+    
     return matchesSearch && matchesStatus && matchesCategory
   })
 
+  // Get unique categories for filter
   const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean)))
 
   return (
@@ -197,126 +216,107 @@ export default function AdminProducts() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Product Management</h1>
             <p className="text-gray-600">Monitor and manage all products in the marketplace</p>
           </div>
           <Button onClick={fetchProducts} disabled={loading}>
             {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {loading ? 'Loading...' : 'Refresh'}
+            Refresh
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Package className="h-8 w-8 text-blue-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Products</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.total}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <Package className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Check className="h-8 w-8 text-green-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Active</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.active}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active</CardTitle>
+              <Check className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.active}</div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Activity className="h-8 w-8 text-yellow-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.pending}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inactive</CardTitle>
+              <Archive className="h-4 w-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.inactive}</div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Archive className="h-8 w-8 text-gray-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Inactive</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.inactive}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+              <Banknote className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total_value.toLocaleString()} RWF</div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Banknote className="h-8 w-8 text-purple-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Value</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {loading ? '...' : `${stats.total_value.toLocaleString()} RWF`}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <X className="h-8 w-8 text-red-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Out of Stock</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.out_of_stock}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+              <X className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.out_of_stock}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters and Search */}
+        {/* Filters */}
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input 
-                    placeholder="Search products, vendors, or SKU..." 
-                    className="pl-10"
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search products, vendors, or SKU..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <select 
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">All Statuses</option>
                   <option value="active">Active</option>
-                  <option value="pending_review">Pending Review</option>
                   <option value="inactive">Inactive</option>
-                  <option value="rejected">Rejected</option>
                 </select>
-                <select 
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">All Categories</option>
-                  {categories.map(category => (
-                    <option key={category} value={category}>{category}</option>
+                  {categories.map((category) => (
+                    <option key={category?.slug} value={category?.slug}>
+                      {category?.name}
+                    </option>
                   ))}
                 </select>
-                <Button variant="outline">
-                  <Filter className="mr-2 h-4 w-4" />
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
                   Filter ({filteredProducts.length})
                 </Button>
               </div>
@@ -334,216 +334,126 @@ export default function AdminProducts() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Activity className="h-8 w-8 animate-spin text-gray-400" />
-                <span className="ml-3 text-gray-500">Loading products...</span>
+              <div className="flex items-center justify-center py-8">
+                <Activity className="h-6 w-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-gray-500">Loading products...</span>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {products.length === 0 ? 'No products listed' : 'No products match your search'}
-                </h3>
-                <p className="text-gray-500">
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No products found</p>
+                <p className="text-sm text-gray-400 mt-1">
                   {products.length === 0 
                     ? 'Products from vendors will appear here when they add them to their stores'
-                    : 'Try adjusting your search terms or filters'
+                    : 'Try adjusting your search or filter criteria'
                   }
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProducts.map((product) => (
-                  <div key={product.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                      <div className="flex gap-4">
-                        {/* Product Image */}
-                        <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                          {product.images && product.images.length > 0 ? (
-                            <img 
-                              src={product.images[0]} 
-                              alt={product.name}
-                              className="w-full h-full object-cover rounded-lg"
-                            />
+                  <Card key={product.id} className="overflow-hidden">
+                    <CardContent className="p-0">
+                      {/* Product Image */}
+                      <div className="aspect-square bg-gray-100 relative">
+                        {product.product_images && product.product_images.length > 0 ? (
+                          <img
+                            src={product.product_images[0].image_url}
+                            alt={product.product_images[0].alt_text || product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="h-16 w-16 text-gray-300" />
+                          </div>
+                        )}
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          {getStatusBadge(product.is_active)}
+                          {getStockBadge(product.inventory_quantity)}
+                        </div>
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-2">{product.name}</h3>
+                        <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                          {product.description || 'No description available'}
+                        </p>
+                        
+                        <div className="flex justify-between items-center mb-3">
+                          <div>
+                            <span className="text-2xl font-bold text-green-600">
+                              {product.price.toLocaleString()} RWF
+                            </span>
+                            {product.compare_at_price && (
+                              <span className="text-sm text-gray-500 line-through ml-2">
+                                {product.compare_at_price.toLocaleString()} RWF
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right text-sm text-gray-500">
+                            <div>Stock: {product.inventory_quantity}</div>
+                            {product.sku && <div>SKU: {product.sku}</div>}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center mb-3 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-1" />
+                            <span className="truncate">
+                              {product.vendor?.business_name || product.vendor?.full_name || 'Unknown Vendor'}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            <Package className="h-4 w-4 mr-1" />
+                            <span>{product.category?.name || 'No Category'}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-gray-400 mb-3">
+                          Created: {new Date(product.created_at).toLocaleDateString()}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mt-4">
+                          <Button size="sm" variant="outline" className="flex-1">
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1">
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          {product.is_active ? (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleStatusUpdate(product.id, false)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Archive className="h-4 w-4 mr-1" />
+                              Deactivate
+                            </Button>
                           ) : (
-                            <Package className="h-8 w-8 text-gray-400" />
-                          )}
-                        </div>
-                        
-                        {/* Product Details */}
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-medium text-gray-900">
-                              {product.name || 'Unnamed Product'}
-                            </h3>
-                            {getStatusBadge(product.status)}
-                            {getStockBadge(product.stock_quantity)}
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              <span>{product.vendor?.business_name || product.vendor?.full_name || 'Unknown Vendor'}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Banknote className="h-3 w-3" />
-                              <span className="font-medium">{product.price?.toLocaleString()} RWF</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <ShoppingCart className="h-3 w-3" />
-                              <span>Stock: {product.stock_quantity}</span>
-                            </div>
-                            {product.category && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-gray-500">Category:</span>
-                                <span>{product.category}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {product.description && (
-                            <p className="text-sm text-gray-600 line-clamp-2">
-                              {product.description}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>Added {new Date(product.created_at).toLocaleDateString()}</span>
-                            </div>
-                            {product.sku && (
-                              <div>
-                                <span className="font-medium">SKU:</span> {product.sku}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Button size="sm" variant="outline">
-                          <Eye className="mr-1 h-3 w-3" />
-                          View
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Edit className="mr-1 h-3 w-3" />
-                          Edit
-                        </Button>
-                        
-                        {product.status === 'pending_review' && (
-                          <>
                             <Button 
                               size="sm" 
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleStatusUpdate(product.id, 'active')}
+                              variant="outline"
+                              onClick={() => handleStatusUpdate(product.id, true)}
+                              className="text-green-600 hover:text-green-700"
                             >
-                              <Check className="mr-1 h-3 w-3" />
-                              Approve
+                              <Check className="h-4 w-4 mr-1" />
+                              Activate
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              onClick={() => handleStatusUpdate(product.id, 'rejected')}
-                            >
-                              <X className="mr-1 h-3 w-3" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        
-                        {product.status === 'active' && (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-orange-600 hover:text-orange-700"
-                            onClick={() => handleStatusUpdate(product.id, 'inactive')}
-                          >
-                            <Archive className="mr-1 h-3 w-3" />
-                            Deactivate
-                          </Button>
-                        )}
-                        
-                        {(product.status === 'inactive' || product.status === 'rejected') && (
-                          <Button 
-                            size="sm" 
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() => handleStatusUpdate(product.id, 'active')}
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Activate
-                          </Button>
-                        )}
-                        
-                        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="mr-1 h-3 w-3" />
-                          Delete
-                        </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Reviews</CardTitle>
-              <CardDescription>Products awaiting approval</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <Activity className="mx-auto h-8 w-8 text-yellow-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-                <p className="text-sm text-gray-600">Products to review</p>
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                Review Products
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Stock Alerts</CardTitle>
-              <CardDescription>Products running low on stock</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <X className="mx-auto h-8 w-8 text-red-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.out_of_stock}</p>
-                <p className="text-sm text-gray-600">Out of stock</p>
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                Manage Stock
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Inventory Value</CardTitle>
-              <CardDescription>Total value of all products</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <Banknote className="mx-auto h-8 w-8 text-purple-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.total_value.toLocaleString()} RWF
-                </p>
-                <p className="text-sm text-gray-600">Total inventory value</p>
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                View Report
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </AdminLayout>
   )
