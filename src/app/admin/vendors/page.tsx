@@ -1,71 +1,88 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase-client'
 import { AdminLayout } from '@/components/layouts/admin-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Users, 
-  Search, 
-  Filter, 
-  Eye,
+import {
+  Search,
+  Filter,
+  Users,
   CheckCircle,
   XCircle,
   Clock,
-  Mail,
-  Phone,
-  Store,
-  Calendar,
+  Eye,
+  Edit,
+  Trash2,
   Activity,
-  Shield,
-  FileText
+  RefreshCw,
+  Phone,
+  Mail,
+  MapPin,
+  Building,
+  Calendar,
+  Package,
+  ShoppingCart,
+  Banknote,
+  AlertTriangle,
+  UserCheck,
+  UserX,
+  UserPlus
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase-client'
 
-interface AdminVendor {
+interface Vendor {
   id: string
   full_name: string
-  business_name: string
-  phone_number: string
-  business_address: string
+  business_name: string | null
+  email: string
+  phone: string | null
+  address: string | null
+  city: string | null
+  district: string | null
+  country: string
+  is_active: boolean
   status: string
   created_at: string
-  social_media_links?: Record<string, string>
-  user_id?: string
-  email?: string // Optional since we'll fetch it from auth.users
+  updated_at: string
+  profile_image_url: string | null
+  business_type: string | null
+  products?: { id: string }[]
+  orders?: { id: string, total_amount: number, status: string }[]
 }
 
 interface VendorStats {
   total: number
-  approved: number
+  active: number
   pending: number
-  rejected: number
+  suspended: number
+  new_today: number
+  total_products: number
+  total_orders: number
+  total_revenue: number
 }
 
 export default function AdminVendors() {
-  const [vendors, setVendors] = useState<AdminVendor[]>([])
-  const [stats, setStats] = useState<VendorStats>({
-    total: 0,
-    approved: 0,
-    pending: 0,
-    rejected: 0
-  })
+  const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [stats, setStats] = useState<VendorStats>({
+    total: 0,
+    active: 0,
+    pending: 0,
+    suspended: 0,
+    new_today: 0,
+    total_products: 0,
+    total_orders: 0,
+    total_revenue: 0
+  })
 
   const supabase = createClient()
 
   useEffect(() => {
-    // Check for URL parameters
-    const urlParams = new URLSearchParams(window.location.search)
-    const filterParam = urlParams.get('filter')
-    if (filterParam === 'pending') {
-      setStatusFilter('pending')
-    }
-    
     fetchVendors()
     
     // Set up real-time polling every 30 seconds
@@ -79,55 +96,49 @@ export default function AdminVendors() {
   const fetchVendors = async () => {
     try {
       setLoading(true)
-      console.log('Fetching vendors...')
-
-      // Test connection first
-      const { data: testData, error: testError } = await supabase
-        .from('vendors')
-        .select('count')
-        .limit(1)
+      console.log('Fetching vendors with comprehensive data...')
       
-      console.log('Connection test:', { testData, testError })
-
-      // Fetch all vendors
-      const { data: vendorsData, error } = await supabase
+      // Fetch vendors with related data
+      const { data: vendorsData, error: vendorsError } = await supabase
         .from('vendors')
-        .select('*')
+        .select(`
+          *,
+          products(id),
+          orders(id, total_amount, status)
+        `)
         .order('created_at', { ascending: false })
 
-      console.log('Vendors query result:', { vendorsData, error })
+      console.log('Vendors query result:', { vendorsData, vendorsError })
 
-      if (error) {
-        console.error('Error fetching vendors:', error)
-        // Set empty data but don't return early, let user see the error
+      if (vendorsError) {
+        console.error('Error fetching vendors:', vendorsError)
         setVendors([])
-        setStats({ total: 0, approved: 0, pending: 0, rejected: 0 })
         return
       }
 
-      // Map data without email for now
-      const mappedData = vendorsData?.map(vendor => ({
-        ...vendor,
-        email: `${vendor.full_name}@vendor.com` // Placeholder email
-      })) || []
-
-      console.log('Mapped vendors data:', mappedData)
-
-      setVendors(mappedData)
-
+      const vendors = vendorsData || []
+      setVendors(vendors)
+      
       // Calculate stats
-      const vendorStats = {
-        total: vendorsData?.length || 0,
-        approved: vendorsData?.filter(v => v.status === 'approved').length || 0,
-        pending: vendorsData?.filter(v => v.status === 'pending').length || 0,
-        rejected: vendorsData?.filter(v => v.status === 'rejected').length || 0
+      const today = new Date().toISOString().split('T')[0]
+      const stats = {
+        total: vendors.length,
+        active: vendors.filter(v => v.is_active).length,
+        pending: vendors.filter(v => v.status === 'pending').length,
+        suspended: vendors.filter(v => v.status === 'suspended').length,
+        new_today: vendors.filter(v => v.created_at?.startsWith(today)).length,
+        total_products: vendors.reduce((sum, v) => sum + (v.products?.length || 0), 0),
+        total_orders: vendors.reduce((sum, v) => sum + (v.orders?.length || 0), 0),
+        total_revenue: vendors.reduce((sum, v) => 
+          sum + (v.orders?.filter((o: any) => o.status === 'completed')?.reduce((orderSum: number, o: any) => orderSum + o.total_amount, 0) || 0), 0
+        )
       }
-      setStats(vendorStats)
-
+      
+      setStats(stats)
+      console.log('Vendors loaded:', { count: vendors.length, stats })
     } catch (error) {
       console.error('Error fetching vendors:', error)
       setVendors([])
-      setStats({ total: 0, approved: 0, pending: 0, rejected: 0 })
     } finally {
       setLoading(false)
     }
@@ -137,40 +148,65 @@ export default function AdminVendors() {
     try {
       const { error } = await supabase
         .from('vendors')
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          is_active: newStatus === 'approved'
+        })
         .eq('id', vendorId)
 
-      if (!error) {
-        // Refresh vendors list
-        fetchVendors()
-      } else {
-        console.error('Error updating vendor status:', error)
-      }
+      if (error) throw error
+
+      // Update local state
+      setVendors(prev => prev.map(vendor => 
+        vendor.id === vendorId 
+          ? { ...vendor, status: newStatus, is_active: newStatus === 'approved' } 
+          : vendor
+      ))
+      
+      // Refresh stats
+      fetchVendors()
     } catch (error) {
       console.error('Error updating vendor status:', error)
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="mr-1 h-3 w-3" />Approved</Badge>
-      case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="mr-1 h-3 w-3" />Pending</Badge>
-      case 'rejected':
-        return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Rejected</Badge>
-      default:
-      return <Badge variant="secondary">{status}</Badge>
+  const getStatusBadge = (vendor: Vendor) => {
+    if (vendor.status === 'approved' && vendor.is_active) {
+      return <Badge className="bg-green-100 text-green-800">Active</Badge>
+    } else if (vendor.status === 'pending') {
+      return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+    } else if (vendor.status === 'suspended') {
+      return <Badge className="bg-red-100 text-red-800">Suspended</Badge>
+    } else {
+      return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
+    }
   }
 
+  const getPerformanceBadge = (vendor: Vendor) => {
+    const orderCount = vendor.orders?.length || 0
+    const revenue = vendor.orders?.filter((o: any) => o.status === 'completed')?.reduce((sum: number, o: any) => sum + o.total_amount, 0) || 0
+    
+    if (revenue > 100000) {
+      return <Badge className="bg-purple-100 text-purple-800">Top Performer</Badge>
+    } else if (revenue > 50000) {
+      return <Badge className="bg-blue-100 text-blue-800">High Performer</Badge>
+    } else if (orderCount > 0) {
+      return <Badge className="bg-green-100 text-green-800">Active Seller</Badge>
+    } else {
+      return <Badge className="bg-gray-100 text-gray-800">New Vendor</Badge>
+    }
+  }
+
+  // Filter vendors based on search and filters
   const filteredVendors = vendors.filter(vendor => {
     const matchesSearch = !searchTerm || 
-      vendor.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      vendor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.city?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = !statusFilter || vendor.status === statusFilter
-
+    
     return matchesSearch && matchesStatus
   })
 
@@ -180,314 +216,288 @@ export default function AdminVendors() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Vendor Management</h1>
-            <p className="text-gray-600">Manage and monitor vendor accounts</p>
+            <h1 className="text-3xl font-bold text-gray-900">Vendor Management</h1>
+            <p className="text-gray-600">Monitor and manage all marketplace vendors</p>
           </div>
-          <Button onClick={fetchVendors} disabled={loading}>
-            {loading ? <Activity className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-            {loading ? 'Loading...' : 'Refresh'}
-          </Button>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Activity className="h-3 w-3 mr-1 animate-pulse" />
+              LIVE
+            </Badge>
+            <Button onClick={fetchVendors} disabled={loading}>
+              {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Total Vendors</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.total}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Vendors</CardTitle>
+              <Users className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+              {stats.new_today > 0 && (
+                <p className="text-xs text-green-600 mt-1">+{stats.new_today} today</p>
+              )}
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-green-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Approved</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.approved}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Vendors</CardTitle>
+              <UserCheck className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.active}</div>
+              <p className="text-xs text-gray-500">
+                {stats.pending} pending, {stats.suspended} suspended
+              </p>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Clock className="h-8 w-8 text-yellow-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.pending}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <Package className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total_products}</div>
+              <p className="text-xs text-gray-500">
+                {stats.total_products > 0 ? (stats.total_products / stats.total).toFixed(1) : 0} avg per vendor
+              </p>
             </CardContent>
           </Card>
+
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <XCircle className="h-8 w-8 text-red-500" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Rejected</p>
-                  <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.rejected}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <Banknote className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total_revenue.toLocaleString()} RWF</div>
+              <p className="text-xs text-gray-500">{stats.total_orders} total orders</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters and Search */}
+        {/* Filters */}
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input 
-                    placeholder="Search vendors..." 
-                    className="pl-10"
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search vendors by name, business, email, or city..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <select 
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="">All Statuses</option>
-                  <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
                 </select>
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    // Clear all filters
-                    setSearchTerm('')
-                    setStatusFilter('')
-                  }}
-                >
-                  <Filter className="mr-2 h-4 w-4" />
-                  Clear Filters ({filteredVendors.length})
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter ({filteredVendors.length})
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Debug Information */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-blue-800">Debug Information</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p><strong>Loading:</strong> {loading.toString()}</p>
-                <p><strong>Total Vendors:</strong> {vendors.length}</p>
-                <p><strong>Filtered Vendors:</strong> {filteredVendors.length}</p>
-                <p><strong>Search Term:</strong> "{searchTerm}"</p>
-                <p><strong>Status Filter:</strong> "{statusFilter}"</p>
-              </div>
-              <div>
-                <p><strong>Stats Total:</strong> {stats.total}</p>
-                <p><strong>Stats Approved:</strong> {stats.approved}</p>
-                <p><strong>Stats Pending:</strong> {stats.pending}</p>
-                <p><strong>Stats Rejected:</strong> {stats.rejected}</p>
-              </div>
-            </div>
-            {vendors.length > 0 && (
-              <div className="mt-4">
-                <p><strong>First Vendor:</strong></p>
-                <pre className="text-xs bg-white p-2 rounded border overflow-auto">
-                  {JSON.stringify(vendors[0], null, 2)}
-                </pre>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Vendors List */}
         <Card>
           <CardHeader>
-            <CardTitle>Vendor Accounts</CardTitle>
+            <CardTitle>Vendors</CardTitle>
             <CardDescription>
-              Manage vendor registrations and accounts ({filteredVendors.length} vendors found)
+              Manage vendor accounts and their information ({filteredVendors.length} vendors found)
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Activity className="h-8 w-8 animate-spin text-gray-400" />
-                <span className="ml-3 text-gray-500">Loading vendors...</span>
+              <div className="flex items-center justify-center py-8">
+                <Activity className="h-6 w-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-gray-500">Loading vendors...</span>
               </div>
             ) : filteredVendors.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {vendors.length === 0 ? 'No vendors registered' : 'No vendors match your search'}
-                </h3>
-                <p className="text-gray-500">
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No vendors found</p>
+                <p className="text-sm text-gray-400 mt-1">
                   {vendors.length === 0 
-                    ? 'Vendor applications will appear here when users register as vendors'
-                    : 'Try adjusting your search terms or filters'
+                    ? 'Vendor registrations will appear here when users sign up'
+                    : 'Try adjusting your search or filter criteria'
                   }
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredVendors.map((vendor) => (
-                  <div key={vendor.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-gray-900">
-                            {vendor.full_name || 'Name not provided'}
-                          </h3>
-                          {getStatusBadge(vendor.status)}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Store className="h-3 w-3" />
-                            <span>{vendor.business_name || 'Business name pending'}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            <span>{vendor.email}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            <span>{vendor.phone_number || 'Phone not provided'}</span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-gray-500" />
-                            <span className="text-gray-500">
-                              Registered {new Date(vendor.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {vendor.business_address && (
-                            <div className="text-gray-600">
-                              <span className="font-medium">Address:</span> {vendor.business_address}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {filteredVendors.map((vendor) => {
+                  const productCount = vendor.products?.length || 0
+                  const orderCount = vendor.orders?.length || 0
+                  const revenue = vendor.orders?.filter((o: any) => o.status === 'completed')?.reduce((sum: number, o: any) => sum + o.total_amount, 0) || 0
+
+                  return (
+                    <Card key={vendor.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        {/* Vendor Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                              {vendor.profile_image_url ? (
+                                <img
+                                  src={vendor.profile_image_url}
+                                  alt={vendor.full_name}
+                                  className="w-12 h-12 rounded-full object-cover"
+                                />
+                              ) : (
+                                <Users className="h-6 w-6 text-blue-600" />
+                              )}
                             </div>
+                            <div>
+                              <h3 className="font-semibold text-lg">{vendor.full_name}</h3>
+                              {vendor.business_name && (
+                                <p className="text-sm text-gray-600">{vendor.business_name}</p>
+                              )}
+                              <div className="flex gap-2 mt-1">
+                                {getStatusBadge(vendor)}
+                                {getPerformanceBadge(vendor)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right text-sm text-gray-500">
+                            <div>ID: {vendor.id.slice(0, 8)}...</div>
+                            <div>Joined: {new Date(vendor.created_at).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+
+                        {/* Contact Information */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Mail className="h-4 w-4 mr-2" />
+                              <span className="truncate">{vendor.email}</span>
+                            </div>
+                            {vendor.phone && (
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Phone className="h-4 w-4 mr-2" />
+                                <span>{vendor.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            {vendor.city && (
+                              <div className="flex items-center text-sm text-gray-600">
+                                <MapPin className="h-4 w-4 mr-2" />
+                                <span>{vendor.city}, {vendor.district}</span>
+                              </div>
+                            )}
+                            {vendor.business_type && (
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Building className="h-4 w-4 mr-2" />
+                                <span>{vendor.business_type}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Performance Metrics */}
+                        <div className="grid grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg mb-4">
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-blue-600">{productCount}</div>
+                            <div className="text-xs text-gray-500">Products</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-green-600">{orderCount}</div>
+                            <div className="text-xs text-gray-500">Orders</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-purple-600">
+                              {revenue.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500">RWF Revenue</div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" className="flex-1">
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1">
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          
+                          {vendor.status === 'pending' && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleStatusUpdate(vendor.id, 'approved')}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleStatusUpdate(vendor.id, 'suspended')}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          
+                          {vendor.status === 'approved' && vendor.is_active && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleStatusUpdate(vendor.id, 'suspended')}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <UserX className="h-4 w-4 mr-1" />
+                              Suspend
+                            </Button>
+                          )}
+                          
+                          {vendor.status === 'suspended' && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleStatusUpdate(vendor.id, 'approved')}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <UserCheck className="h-4 w-4 mr-1" />
+                              Reactivate
+                            </Button>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="mr-1 h-3 w-3" />
-                          View Details
-                        </Button>
-                        {vendor.status === 'pending' && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleStatusUpdate(vendor.id, 'approved')}
-                            >
-                              <CheckCircle className="mr-1 h-3 w-3" />
-                              Approve
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive"
-                              onClick={() => handleStatusUpdate(vendor.id, 'rejected')}
-                            >
-                              <XCircle className="mr-1 h-3 w-3" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {vendor.status === 'approved' && (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleStatusUpdate(vendor.id, 'rejected')}
-                          >
-                            <Shield className="mr-1 h-3 w-3" />
-                            Suspend
-                          </Button>
-                        )}
-                        {vendor.status === 'rejected' && (
-                          <Button 
-                            size="sm" 
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() => handleStatusUpdate(vendor.id, 'approved')}
-                          >
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Reactivate
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Reviews</CardTitle>
-              <CardDescription>Vendor applications awaiting approval</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <Clock className="mx-auto h-8 w-8 text-yellow-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-                <p className="text-sm text-gray-600">Applications pending</p>
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                Review Applications
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Document Verification</CardTitle>
-              <CardDescription>Documents waiting for verification</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <FileText className="mx-auto h-8 w-8 text-blue-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-sm text-gray-600">Documents to review</p>
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                Review Documents
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Support Tickets</CardTitle>
-              <CardDescription>Vendor support requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <Mail className="mx-auto h-8 w-8 text-red-500 mb-2" />
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-sm text-gray-600">Open tickets</p>
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                View Tickets
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </AdminLayout>
   )
-}
 }

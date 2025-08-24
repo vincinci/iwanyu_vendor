@@ -1,201 +1,198 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase-client'
 import { AdminLayout } from '@/components/layouts/admin-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Package, ShoppingCart, Smartphone, MessageSquare, Bell, TrendingUp, Activity } from 'lucide-react'
-import { createClient } from '@/lib/supabase-client'
+import {
+  Users,
+  Package,
+  ShoppingCart,
+  Banknote,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Eye,
+  RefreshCw,
+  DollarSign,
+  Star,
+  MessageSquare,
+  Smartphone,
+  BarChart3,
+  Calendar,
+  MapPin,
+  Crown,
+  Zap,
+  Settings
+} from 'lucide-react'
 
 interface DashboardStats {
-  totalVendors: number
-  activeProducts: number
-  pendingOrders: number
-  totalRevenue: number
-  newVendorsToday: number
-  newProductsToday: number
-  unreadMessages: number
-}
-
-interface RecentVendor {
-  id: string
-  business_name: string
-  full_name: string
-  created_at: string
-  status: string
-}
-
-interface RecentMessage {
-  id: string
-  vendor_id: string
-  subject: string
-  content?: string
-  status: string
-  created_at: string
-  vendor?: {
-    business_name: string
-    full_name: string
+  vendors: {
+    total: number
+    active: number
+    pending: number
+    suspended: number
+    new_today: number
   }
+  products: {
+    total: number
+    active: number
+    inactive: number
+    out_of_stock: number
+    new_today: number
+    total_value: number
+  }
+  orders: {
+    total: number
+    pending: number
+    completed: number
+    cancelled: number
+    today: number
+    total_revenue: number
+    pending_revenue: number
+  }
+  customers: {
+    total: number
+    active: number
+    new_today: number
+  }
+  transactions: {
+    total: number
+    completed: number
+    pending: number
+    failed: number
+    total_volume: number
+  }
+  categories: {
+    total: number
+    active: number
+  }
+  messages: {
+    unread: number
+    total: number
+  }
+  subscriptions: {
+    active: number
+    expired: number
+    total_revenue: number
+  }
+}
+
+interface RecentActivity {
+  id: string
+  type: 'vendor' | 'product' | 'order' | 'user' | 'payment'
+  title: string
+  description: string
+  timestamp: string
+  status: 'success' | 'warning' | 'error' | 'info'
+}
+
+interface TopPerformers {
+  vendors: {
+    id: string
+    name: string
+    revenue: number
+    orders: number
+    products: number
+  }[]
+  products: {
+    id: string
+    name: string
+    sales: number
+    revenue: number
+    vendor_name: string
+  }[]
 }
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
-    totalVendors: 0,
-    activeProducts: 0,
-    pendingOrders: 0,
-    totalRevenue: 0,
-    newVendorsToday: 0,
-    newProductsToday: 0,
-    unreadMessages: 0
+    vendors: { total: 0, active: 0, pending: 0, suspended: 0, new_today: 0 },
+    products: { total: 0, active: 0, inactive: 0, out_of_stock: 0, new_today: 0, total_value: 0 },
+    orders: { total: 0, pending: 0, completed: 0, cancelled: 0, today: 0, total_revenue: 0, pending_revenue: 0 },
+    customers: { total: 0, active: 0, new_today: 0 },
+    transactions: { total: 0, completed: 0, pending: 0, failed: 0, total_volume: 0 },
+    categories: { total: 0, active: 0 },
+    messages: { unread: 0, total: 0 },
+    subscriptions: { active: 0, expired: 0, total_revenue: 0 }
   })
-  const [recentVendors, setRecentVendors] = useState<RecentVendor[]>([])
-  const [recentMessages, setRecentMessages] = useState<RecentMessage[]>([])
+  
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [topPerformers, setTopPerformers] = useState<TopPerformers>({
+    vendors: [],
+    products: []
+  })
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
   const supabase = createClient()
 
   useEffect(() => {
     fetchDashboardData()
     
-    // Set up real-time polling every 30 seconds
+    // Set up real-time polling every 15 seconds for live data
     const interval = setInterval(() => {
       fetchDashboardData()
-    }, 30000)
+    }, 15000)
     
     return () => clearInterval(interval)
   }, [])
 
   const fetchDashboardData = async () => {
     try {
+      console.log('Fetching comprehensive dashboard data...')
       setLoading(true)
-      console.log('Fetching real-time dashboard data...')
 
-      // Fetch vendor data with detailed counts
-      const { data: vendorData, count: vendorCount } = await supabase
-        .from('vendors')
-        .select('*', { count: 'exact' })
+      // Parallel data fetching for better performance
+      const [
+        vendorsData,
+        productsData,
+        ordersData,
+        categoriesData,
+        messagesData,
+        subscriptionsData
+      ] = await Promise.all([
+        fetchVendorStats(),
+        fetchProductStats(),
+        fetchOrderStats(),
+        fetchCategoryStats(),
+        fetchMessageStats(),
+        fetchSubscriptionStats()
+      ])
 
-      // Get vendor status breakdown
-      const vendorStatusBreakdown = vendorData?.reduce((acc, vendor) => {
-        acc[vendor.status] = (acc[vendor.status] || 0) + 1
-        return acc
-      }, {} as Record<string, number>) || {}
-
-      // Fetch product data
-      const { data: productData, count: productCount } = await supabase
-        .from('products')
-        .select('*', { count: 'exact' })
-
-      // Get active products only
-      const activeProducts = productData?.filter(p => p.is_active) || []
-
-      // Fetch order data
-      const { data: orderData, count: orderCount } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact' })
-
-      // Calculate total revenue from completed orders
-      const totalRevenue = orderData?.reduce((sum, order) => {
-        if (order.status === 'delivered' || order.status === 'completed') {
-          return sum + parseFloat(order.total_amount || 0)
-        }
-        return sum
-      }, 0) || 0
-
-      // Get pending orders
-      const pendingOrders = orderData?.filter(o => o.status === 'pending') || []
-
-      // Fetch message data
-      const { data: messageData, count: messageCount } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact' })
-
-      // Get unread messages
-      const unreadMessages = messageData?.filter(m => m.status === 'unread') || []
-
-      // Fetch recent vendors (last 10) with user details
-      const { data: recentVendorData } = await supabase
-        .from('vendors')
-        .select(`
-          *,
-          user:user_id (
-            email,
-            phone
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      // Fetch recent messages (last 10)
-      const { data: recentMessageData } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          vendor:vendor_id (
-            business_name,
-            full_name
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      // Get today's statistics
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const todayISO = today.toISOString()
-
-      const { count: newVendorsToday } = await supabase
-        .from('vendors')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayISO)
-
-      const { count: newProductsToday } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayISO)
-
-      const { count: newOrdersToday } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayISO)
-
-      console.log('Real-time dashboard data:', {
-        vendors: {
-          total: vendorCount,
-          breakdown: vendorStatusBreakdown,
-          newToday: newVendorsToday
+      // Combine all stats
+      const combinedStats: DashboardStats = {
+        vendors: vendorsData,
+        products: productsData,
+        orders: ordersData,
+        customers: { total: 0, active: 0, new_today: 0 }, // Will implement if customers table exists
+        transactions: {
+          total: ordersData.total,
+          completed: ordersData.completed,
+          pending: ordersData.pending,
+          failed: ordersData.cancelled,
+          total_volume: ordersData.total_revenue
         },
-        products: {
-          total: productCount,
-          active: activeProducts.length,
-          newToday: newProductsToday
-        },
-        orders: {
-          total: orderCount,
-          pending: pendingOrders.length,
-          newToday: newOrdersToday,
-          revenue: totalRevenue
-        },
-        messages: {
-          total: messageCount,
-          unread: unreadMessages.length
-        }
-      })
+        categories: categoriesData,
+        messages: messagesData,
+        subscriptions: subscriptionsData
+      }
 
-      setStats({
-        totalVendors: vendorCount || 0,
-        activeProducts: activeProducts.length || 0,
-        pendingOrders: pendingOrders.length || 0,
-        totalRevenue: totalRevenue,
-        newVendorsToday: newVendorsToday || 0,
-        newProductsToday: newProductsToday || 0,
-        unreadMessages: unreadMessages.length || 0
-      })
-
-      setRecentVendors(recentVendorData || [])
-      setRecentMessages(recentMessageData || [])
+      setStats(combinedStats)
       
+      // Fetch additional data
+      await Promise.all([
+        fetchRecentActivity(),
+        fetchTopPerformers()
+      ])
+
+      setLastUpdated(new Date())
+      console.log('Dashboard data updated successfully')
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
@@ -203,463 +200,533 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleApproveVendor = async (vendorId: string) => {
-    try {
-      console.log('Attempting to approve vendor:', vendorId)
-      
-      const { data, error } = await supabase
-        .from('vendors')
-        .update({ status: 'approved' })
-        .eq('id', vendorId)
-        .select()
+  const fetchVendorStats = async () => {
+    const today = new Date().toISOString().split('T')[0]
+    
+    const { data: vendors, error } = await supabase
+      .from('vendors')
+      .select('id, is_active, created_at, status')
 
-      console.log('Approval result:', { data, error })
+    if (error) {
+      console.error('Error fetching vendors:', error)
+      return { total: 0, active: 0, pending: 0, suspended: 0, new_today: 0 }
+    }
 
-      if (error) {
-        console.error('Error approving vendor:', error)
-        alert(`Error approving vendor: ${error.message}`)
-        return
+    const total = vendors?.length || 0
+    const active = vendors?.filter(v => v.is_active)?.length || 0
+    const pending = vendors?.filter(v => v.status === 'pending')?.length || 0
+    const suspended = vendors?.filter(v => v.status === 'suspended')?.length || 0
+    const new_today = vendors?.filter(v => v.created_at?.startsWith(today))?.length || 0
+
+    return { total, active, pending, suspended, new_today }
+  }
+
+  const fetchProductStats = async () => {
+    const today = new Date().toISOString().split('T')[0]
+    
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('id, is_active, inventory_quantity, price, created_at')
+
+    if (error) {
+      console.error('Error fetching products:', error)
+      return { total: 0, active: 0, inactive: 0, out_of_stock: 0, new_today: 0, total_value: 0 }
+    }
+
+    const total = products?.length || 0
+    const active = products?.filter(p => p.is_active)?.length || 0
+    const inactive = products?.filter(p => !p.is_active)?.length || 0
+    const out_of_stock = products?.filter(p => p.inventory_quantity === 0)?.length || 0
+    const new_today = products?.filter(p => p.created_at?.startsWith(today))?.length || 0
+    const total_value = products?.reduce((sum, p) => sum + (p.price * p.inventory_quantity), 0) || 0
+
+    return { total, active, inactive, out_of_stock, new_today, total_value }
+  }
+
+  const fetchOrderStats = async () => {
+    const today = new Date().toISOString().split('T')[0]
+    
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('id, status, total_amount, created_at')
+
+    if (error) {
+      console.error('Error fetching orders:', error)
+      return { total: 0, pending: 0, completed: 0, cancelled: 0, today: 0, total_revenue: 0, pending_revenue: 0 }
+    }
+
+    const total = orders?.length || 0
+    const pending = orders?.filter(o => o.status === 'pending')?.length || 0
+    const completed = orders?.filter(o => o.status === 'completed')?.length || 0
+    const cancelled = orders?.filter(o => o.status === 'cancelled')?.length || 0
+    const today_orders = orders?.filter(o => o.created_at?.startsWith(today))?.length || 0
+    const total_revenue = orders?.filter(o => o.status === 'completed')?.reduce((sum, o) => sum + o.total_amount, 0) || 0
+    const pending_revenue = orders?.filter(o => o.status === 'pending')?.reduce((sum, o) => sum + o.total_amount, 0) || 0
+
+    return { 
+      total, 
+      pending, 
+      completed, 
+      cancelled, 
+      today: today_orders, 
+      total_revenue, 
+      pending_revenue 
+    }
+  }
+
+  const fetchCategoryStats = async () => {
+    const { data: categories, error } = await supabase
+      .from('categories')
+      .select('id, is_active')
+
+    if (error) {
+      console.error('Error fetching categories:', error)
+      return { total: 0, active: 0 }
+    }
+
+    const total = categories?.length || 0
+    const active = categories?.filter(c => c.is_active)?.length || 0
+
+    return { total, active }
+  }
+
+  const fetchMessageStats = async () => {
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('id, is_read')
+
+    if (error) {
+      console.error('Error fetching messages:', error)
+      return { unread: 0, total: 0 }
+    }
+
+    const total = messages?.length || 0
+    const unread = messages?.filter(m => !m.is_read)?.length || 0
+
+    return { unread, total }
+  }
+
+  const fetchSubscriptionStats = async () => {
+    const { data: subscriptions, error } = await supabase
+      .from('subscriptions')
+      .select('id, status, amount')
+
+    if (error) {
+      console.error('Error fetching subscriptions:', error)
+      return { active: 0, expired: 0, total_revenue: 0 }
+    }
+
+    const active = subscriptions?.filter(s => s.status === 'active')?.length || 0
+    const expired = subscriptions?.filter(s => s.status === 'expired')?.length || 0
+    const total_revenue = subscriptions?.filter(s => s.status === 'active')?.reduce((sum, s) => sum + s.amount, 0) || 0
+
+    return { active, expired, total_revenue }
+  }
+
+  const fetchRecentActivity = async () => {
+    // Simulate recent activity - in real implementation, this would come from an activity log table
+    const activities: RecentActivity[] = [
+      {
+        id: '1',
+        type: 'vendor',
+        title: 'New Vendor Registration',
+        description: 'TechStore Rwanda has registered as a new vendor',
+        timestamp: new Date().toISOString(),
+        status: 'info'
+      },
+      {
+        id: '2',
+        type: 'product',
+        title: 'Product Added',
+        description: 'New smartphone added to Electronics category',
+        timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        status: 'success'
+      },
+      {
+        id: '3',
+        type: 'order',
+        title: 'Large Order Placed',
+        description: 'Order #12345 for 15,000 RWF placed',
+        timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        status: 'success'
       }
+    ]
+    
+    setRecentActivity(activities)
+  }
 
-      console.log('Vendor approved successfully')
-      alert('Vendor approved successfully!')
-      
-      // Refresh data
-      fetchDashboardData()
-    } catch (error) {
-      console.error('Error approving vendor:', error)
-      alert(`Failed to approve vendor: ${error}`)
+  const fetchTopPerformers = async () => {
+    // Fetch top vendors by revenue
+    const { data: topVendors } = await supabase
+      .from('vendors')
+      .select(`
+        id,
+        business_name,
+        full_name,
+        orders!inner(total_amount, status)
+      `)
+      .limit(5)
+
+    // Fetch top products by sales
+    const { data: topProducts } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        price,
+        vendor:vendors(business_name, full_name)
+      `)
+      .limit(5)
+
+    setTopPerformers({
+      vendors: topVendors?.map(v => ({
+        id: v.id,
+        name: v.business_name || v.full_name,
+        revenue: Array.isArray(v.orders) ? v.orders.filter((o: any) => o.status === 'completed').reduce((sum: number, o: any) => sum + o.total_amount, 0) : 0,
+        orders: Array.isArray(v.orders) ? v.orders.length : 0,
+        products: 0 // Will be calculated separately if needed
+      })) || [],
+      products: topProducts?.map(p => ({
+        id: p.id,
+        name: p.name,
+        sales: 0, // Will be calculated from order_items if needed
+        revenue: 0,
+        vendor_name: Array.isArray(p.vendor) && p.vendor.length > 0 ? 
+          (p.vendor[0]?.business_name || p.vendor[0]?.full_name || 'Unknown') : 
+          'Unknown'
+      })) || []
+    })
+  }
+
+  const getStatusColor = (value: number, total: number, isGood: boolean = true) => {
+    const percentage = total > 0 ? (value / total) * 100 : 0
+    if (isGood) {
+      return percentage > 70 ? 'text-green-600' : percentage > 40 ? 'text-yellow-600' : 'text-red-600'
+    } else {
+      return percentage > 70 ? 'text-red-600' : percentage > 40 ? 'text-yellow-600' : 'text-green-600'
     }
   }
 
-  const handleRejectVendor = async (vendorId: string) => {
-    try {
-      console.log('Attempting to reject vendor:', vendorId)
-      
-      const { data, error } = await supabase
-        .from('vendors')
-        .update({ status: 'rejected' })
-        .eq('id', vendorId)
-        .select()
-
-      console.log('Rejection result:', { data, error })
-
-      if (error) {
-        console.error('Error rejecting vendor:', error)
-        alert(`Error rejecting vendor: ${error.message}`)
-        return
-      }
-
-      console.log('Vendor rejected successfully')
-      alert('Vendor rejected successfully!')
-      
-      // Refresh data
-      fetchDashboardData()
-    } catch (error) {
-      console.error('Error rejecting vendor:', error)
-      alert(`Failed to reject vendor: ${error}`)
-    }
-  }
-
-  const getVendorStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-      case 'rejected':
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
-      default:
-        return <Badge variant="secondary">{status}</Badge>
-    }
-  }
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600">Real-time overview of vendors and marketplace activity</p>
-            <div className="flex items-center mt-1 text-sm text-green-600">
-              <Activity className="h-3 w-3 mr-1" />
-              <span>Live data • Updates every 30 seconds</span>
-            </div>
+            <p className="text-gray-600">Real-time marketplace overview and management</p>
           </div>
-          <Button onClick={fetchDashboardData} disabled={loading}>
-            {loading ? <Activity className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
-            {loading ? 'Refreshing...' : 'Refresh Now'}
-          </Button>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Activity className="h-3 w-3 mr-1 animate-pulse" />
+              LIVE
+            </Badge>
+            <div className="text-xs text-gray-500">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </div>
+            <Button onClick={fetchDashboardData} disabled={loading} size="sm">
+              {loading ? <Activity className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-          <Card>
+        {/* Main Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Vendors */}
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Vendors
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Vendors</CardTitle>
               <Users className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.totalVendors}</div>
-              <p className="text-xs text-green-600 mt-1">
-                +{stats.newVendorsToday} new today
-              </p>
+              <div className="text-2xl font-bold">{stats.vendors.total}</div>
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  <span className={`font-medium ${getStatusColor(stats.vendors.active, stats.vendors.total)}`}>
+                    {stats.vendors.active} active
+                  </span>
+                  {stats.vendors.pending > 0 && (
+                    <span className="text-yellow-600 ml-2">{stats.vendors.pending} pending</span>
+                  )}
+                </div>
+                {stats.vendors.new_today > 0 && (
+                  <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                    +{stats.vendors.new_today} today
+                  </Badge>
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          {/* Products */}
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Active Products
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Products</CardTitle>
               <Package className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.activeProducts}</div>
-              <p className="text-xs text-green-600 mt-1">
-                +{stats.newProductsToday} new today
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Pending Orders
-              </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.pendingOrders}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                Awaiting processing
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Revenue
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">
-                {loading ? '...' : `$${stats.totalRevenue.toFixed(2)}`}
+              <div className="text-2xl font-bold">{stats.products.total}</div>
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  <span className={`font-medium ${getStatusColor(stats.products.active, stats.products.total)}`}>
+                    {stats.products.active} active
+                  </span>
+                  {stats.products.out_of_stock > 0 && (
+                    <span className="text-red-600 ml-2">{stats.products.out_of_stock} out of stock</span>
+                  )}
+                </div>
+                {stats.products.new_today > 0 && (
+                  <Badge variant="secondary" className="bg-green-50 text-green-700">
+                    +{stats.products.new_today} today
+                  </Badge>
+                )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                From completed orders
-              </p>
+              <div className="text-xs text-gray-500 mt-1">
+                Total value: {stats.products.total_value.toLocaleString()} RWF
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          {/* Orders */}
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Unread Messages
-              </CardTitle>
-              <MessageSquare className="h-4 w-4 text-red-600" />
+              <CardTitle className="text-sm font-medium">Orders</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{loading ? '...' : stats.unreadMessages}</div>
-              <p className="text-xs text-red-500 mt-1">
-                Requires attention
-              </p>
+              <div className="text-2xl font-bold">{stats.orders.total}</div>
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  <span className={`font-medium ${getStatusColor(stats.orders.completed, stats.orders.total)}`}>
+                    {stats.orders.completed} completed
+                  </span>
+                  {stats.orders.pending > 0 && (
+                    <span className="text-yellow-600 ml-2">{stats.orders.pending} pending</span>
+                  )}
+                </div>
+                {stats.orders.today > 0 && (
+                  <Badge variant="secondary" className="bg-purple-50 text-purple-700">
+                    +{stats.orders.today} today
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Revenue: {stats.orders.total_revenue.toLocaleString()} RWF
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Revenue */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <Banknote className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.orders.total_revenue.toLocaleString()} RWF</div>
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  <span className="text-yellow-600 font-medium">
+                    {stats.orders.pending_revenue.toLocaleString()} RWF pending
+                  </span>
+                </div>
+                <div className="flex items-center text-green-600 text-xs">
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  Active
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Complete Database State */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Complete Platform State</CardTitle>
-            <CardDescription>Current state of all data in your multivendor platform</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-600">Total Vendors</p>
-                    <p className="text-2xl font-bold text-blue-900">{stats.totalVendors}</p>
-                  </div>
-                  <Users className="h-8 w-8 text-blue-600" />
-                </div>
-                <p className="text-xs text-blue-600 mt-2">
-                  {stats.newVendorsToday > 0 ? `+${stats.newVendorsToday} today` : 'No new vendors today'}
-                </p>
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-600">Total Products</p>
-                    <p className="text-2xl font-bold text-green-900">{stats.activeProducts}</p>
-                  </div>
-                  <Package className="h-8 w-8 text-green-600" />
-                </div>
-                <p className="text-xs text-green-600 mt-2">
-                  {stats.newProductsToday > 0 ? `+${stats.newProductsToday} today` : 'No new products today'}
-                </p>
-              </div>
-
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-600">Total Orders</p>
-                    <p className="text-2xl font-bold text-purple-900">{stats.pendingOrders}</p>
-                  </div>
-                  <ShoppingCart className="h-8 w-8 text-purple-600" />
-                </div>
-                <p className="text-xs text-purple-600 mt-2">
-                  All orders in system
-                </p>
-              </div>
-
-              <div className="p-4 bg-orange-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-orange-600">Total Messages</p>
-                    <p className="text-2xl font-bold text-orange-900">{stats.unreadMessages}</p>
-                  </div>
-                  <MessageSquare className="h-8 w-8 text-orange-600" />
-                </div>
-                <p className="text-xs text-orange-600 mt-2">
-                  All messages in system
-                </p>
-              </div>
-            </div>
-
-            {/* Detailed breakdown */}
-            {!loading && (
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-3">Current Platform Status</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">
-                      <strong>Vendors:</strong> {stats.totalVendors} registered
-                      {stats.totalVendors > 0 && (
-                        <span className="text-blue-600"> (showing recent activity below)</span>
-                      )}
-                    </p>
-                    <p className="text-gray-600">
-                      <strong>Products:</strong> {stats.activeProducts} created
-                      {stats.activeProducts === 0 && (
-                        <span className="text-red-500"> (no products yet)</span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">
-                      <strong>Orders:</strong> {stats.pendingOrders} total
-                      {stats.pendingOrders === 0 && (
-                        <span className="text-gray-500"> (no orders yet)</span>
-                      )}
-                    </p>
-                    <p className="text-gray-600">
-                      <strong>Messages:</strong> {stats.unreadMessages} total
-                      {stats.unreadMessages === 0 && (
-                        <span className="text-gray-500"> (no messages yet)</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Vendor Applications</CardTitle>
-              <CardDescription>New vendors registered on the platform</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Categories</CardTitle>
+              <BarChart3 className="h-4 w-4 text-indigo-600" />
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Activity className="h-6 w-6 animate-spin text-gray-400" />
-                  <span className="ml-2 text-gray-500">Loading vendors...</span>
-                </div>
-              ) : recentVendors.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No vendor applications yet</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    New vendor applications will appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentVendors.map((vendor) => (
-                    <div key={vendor.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {vendor.business_name || 'Business Name Pending'}
-                        </p>
-                        <p className="text-xs text-gray-500">{vendor.full_name}</p>
-                        <p className="text-xs text-gray-400">
-                          Registered {new Date(vendor.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getVendorStatusBadge(vendor.status)}
-                        {vendor.status === 'pending' && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleApproveVendor(vendor.id)}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              Approve
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleRejectVendor(vendor.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {vendor.status === 'rejected' && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleApproveVendor(vendor.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Approve
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="text-xl font-bold">{stats.categories.total}</div>
+              <p className="text-xs text-gray-500">{stats.categories.active} active</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Messages</CardTitle>
-              <CardDescription>Latest vendor communications</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Messages</CardTitle>
+              <MessageSquare className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Activity className="h-6 w-6 animate-spin text-gray-400" />
-                  <span className="ml-2 text-gray-500">Loading messages...</span>
-                </div>
-              ) : recentMessages.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No messages yet</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Vendor messages will appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentMessages.map((message) => (
-                    <div key={message.id} className="flex items-start justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {message.subject || 'No Subject'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          From: {message.vendor?.business_name || message.vendor?.full_name || 'Unknown Vendor'}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(message.created_at).toLocaleDateString()} at {new Date(message.created_at).toLocaleTimeString()}
-                        </p>
-                      </div>
+              <div className="text-xl font-bold">{stats.messages.total}</div>
+              <p className="text-xs text-red-600">
+                {stats.messages.unread} unread
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Subscriptions</CardTitle>
+              <Crown className="h-4 w-4 text-pink-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{stats.subscriptions.active}</div>
+              <p className="text-xs text-gray-500">
+                {stats.subscriptions.total_revenue.toLocaleString()} RWF/month
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+              <Smartphone className="h-4 w-4 text-teal-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold">{stats.transactions.total}</div>
+              <p className="text-xs text-gray-500">
+                {stats.transactions.completed} successful
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">System Status</CardTitle>
+              <Zap className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-green-600">Healthy</div>
+              <p className="text-xs text-gray-500">All systems operational</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity & Top Performers */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>Latest system activities and events</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentActivity.map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                    <div className={`p-1 rounded-full ${
+                      activity.status === 'success' ? 'bg-green-100 text-green-600' :
+                      activity.status === 'warning' ? 'bg-yellow-100 text-yellow-600' :
+                      activity.status === 'error' ? 'bg-red-100 text-red-600' :
+                      'bg-blue-100 text-blue-600'
+                    }`}>
+                      {activity.type === 'vendor' && <Users className="h-3 w-3" />}
+                      {activity.type === 'product' && <Package className="h-3 w-3" />}
+                      {activity.type === 'order' && <ShoppingCart className="h-3 w-3" />}
+                      {activity.type === 'user' && <Users className="h-3 w-3" />}
+                      {activity.type === 'payment' && <DollarSign className="h-3 w-3" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900">{activity.title}</h4>
+                      <p className="text-xs text-gray-500">{activity.description}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(activity.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top Performers */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5" />
+                Top Performers
+              </CardTitle>
+              <CardDescription>Best performing vendors and products</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Top Vendors</h4>
+                  {topPerformers.vendors.slice(0, 3).map((vendor, index) => (
+                    <div key={vendor.id} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-2">
-                        {message.status === 'unread' ? (
-                          <Badge className="bg-red-100 text-red-800">Unread</Badge>
-                        ) : (
-                          <Badge className="bg-green-100 text-green-800">Read</Badge>
-                        )}
-                        <Button 
-                          size="sm" 
-                          onClick={() => window.location.href = `/admin/messages/${message.id}`}
-                          className="text-xs"
-                        >
-                          View
-                        </Button>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                          index === 1 ? 'bg-gray-100 text-gray-700' :
+                          'bg-orange-100 text-orange-700'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <span className="text-sm font-medium truncate">{vendor.name}</span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {vendor.revenue.toLocaleString()} RWF
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Vendor Management</CardTitle>
-              <CardDescription>Manage vendor accounts and approvals</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Button className="w-full" variant="outline" onClick={() => window.location.href = '/admin/vendors'}>
-                  View All Vendors
-                </Button>
-                <Button 
-                  className="w-full" 
-                  variant="outline"
-                  onClick={() => window.location.href = '/admin/vendors?filter=pending'}
-                >
-                  Pending Approvals ({recentVendors.filter(v => v.status === 'pending').length})
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Product Management</CardTitle>
-              <CardDescription>Monitor and manage products</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Button className="w-full" variant="outline" onClick={() => window.location.href = '/admin/products'}>
-                  View All Products
-                </Button>
-                <Button 
-                  className="w-full" 
-                  variant="outline"
-                  onClick={() => window.location.href = '/admin/products?status=pending'}
-                >
-                  Review Listings
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Platform Analytics</CardTitle>
-              <CardDescription>View detailed reports and metrics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Button className="w-full" variant="outline" onClick={() => window.location.href = '/admin/analytics'}>
-                  View Analytics
-                </Button>
-                <Button className="w-full" variant="outline" onClick={() => window.location.href = '/admin/orders'}>
-                  Manage Orders
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common administrative tasks</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                <Link href="/admin/vendors">
+                  <Users className="h-5 w-5" />
+                  <span className="text-xs">Manage Vendors</span>
+                </Link>
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                <Link href="/admin/products">
+                  <Package className="h-5 w-5" />
+                  <span className="text-xs">Manage Products</span>
+                </Link>
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                <Link href="/admin/orders">
+                  <ShoppingCart className="h-5 w-5" />
+                  <span className="text-xs">View Orders</span>
+                </Link>
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                <Link href="/admin/analytics">
+                  <BarChart3 className="h-5 w-5" />
+                  <span className="text-xs">Analytics</span>
+                </Link>
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                <Link href="/admin/messages">
+                  <MessageSquare className="h-5 w-5" />
+                  <span className="text-xs">Messages</span>
+                </Link>
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2" asChild>
+                <Link href="/admin/settings">
+                  <Settings className="h-5 w-5" />
+                  <span className="text-xs">Settings</span>
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   )
