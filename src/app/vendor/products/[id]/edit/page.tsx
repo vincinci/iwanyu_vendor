@@ -17,7 +17,7 @@ interface Product {
   name: string
   description?: string
   price: number
-  inventory_quantity: number
+  stock_quantity: number
   category_id?: string
   is_active: boolean
   sku?: string
@@ -43,7 +43,7 @@ interface FormData {
   name: string
   description: string
   price: string
-  inventory_quantity: string
+  stock_quantity: string
   category_id: string
   is_active: boolean
 }
@@ -65,7 +65,7 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
     name: '',
     description: '',
     price: '',
-    inventory_quantity: '',
+    stock_quantity: '',
     category_id: '',
     is_active: true
   })
@@ -125,7 +125,7 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
           name: productData.name || '',
           description: productData.description || '',
           price: productData.price?.toString() || '',
-          inventory_quantity: productData.stock_quantity?.toString() || '',
+          stock_quantity: productData.stock_quantity?.toString() || '',
           category_id: productData.category || '',
           is_active: productData.is_active
         })
@@ -243,12 +243,17 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
         return
       }
 
+      if (!formData.stock_quantity || parseInt(formData.stock_quantity) < 0) {
+        alert('Please enter a valid stock quantity (0 or more)')
+        return
+      }
+
       // Update product
       const updateData = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         price: parseFloat(formData.price),
-        stock_quantity: parseInt(formData.inventory_quantity) || 0,
+        stock_quantity: parseInt(formData.stock_quantity) || 0,
         category: formData.category_id || null,
         is_active: formData.is_active,
         updated_at: new Date().toISOString()
@@ -455,15 +460,18 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
                         Stock Quantity *
                       </label>
                       <Input
-                        name="inventory_quantity"
+                        name="stock_quantity"
                         type="number"
                         min="0"
                         step="1"
-                        value={formData.inventory_quantity}
+                        value={formData.stock_quantity}
                         onChange={handleInputChange}
-                        placeholder="0"
+                        placeholder="Enter current stock quantity"
                         required
                       />
+                      <p className="text-sm text-gray-600 mt-1">
+                        Update your current stock level. This will be visible to customers.
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

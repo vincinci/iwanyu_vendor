@@ -250,7 +250,10 @@ export default function NewProduct() {
       newErrors.price = 'Valid price is required'
     }
     if (!formData.stock || parseInt(formData.stock) < 0) {
-      newErrors.stock = 'Valid stock quantity is required'
+      newErrors.stock = 'Please enter a valid stock quantity (0 or more)'
+    } else if (parseInt(formData.stock) === 0) {
+      // Allow 0 stock but warn user
+      console.log('Warning: Stock quantity is 0 - product will show as out of stock')
     }
     if (!formData.category) {
       newErrors.category = 'Category is required'
@@ -523,9 +526,12 @@ Full variant support (individual colors/sizes with different prices) will be ava
                           handleInputChange(e)
                           updateVariants(selectedColors, selectedSizes)
                         }}
-                        placeholder="100"
+                        placeholder="Enter available stock quantity (e.g., 100)"
                         className={`bg-white text-gray-900 ${errors.stock ? 'border-red-500' : 'border-gray-300'}`}
                       />
+                      <p className="text-sm text-gray-600 mt-1">
+                        Set the total number of items you have in stock. This will be displayed to customers and decrease with each sale.
+                      </p>
                       {errors.stock && (
                         <p className="text-red-500 text-sm mt-1">{errors.stock}</p>
                       )}

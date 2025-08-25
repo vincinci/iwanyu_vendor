@@ -15,7 +15,7 @@ interface Product {
   name: string
   description: string
   price: number
-  inventory_quantity: number
+  stock_quantity: number
   category_id: string
   is_active: boolean
   sku?: string
@@ -345,7 +345,7 @@ export default function ProductView({ params }: { params: Promise<{ id: string }
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Stock Quantity</label>
-                    <p className="mt-1 text-gray-900">{product.inventory_quantity} units</p>
+                    <p className="mt-1 text-gray-900">{product.stock_quantity} units</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Category</label>
