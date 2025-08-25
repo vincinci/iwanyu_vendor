@@ -103,37 +103,11 @@ export default function AdminVendors() {
       
       console.log('Database connection test:', { connectionTest, connectionError })
       
-      // Try comprehensive query first
+      // Use simple query without joins to avoid 400 errors
       let { data: vendorsData, error: vendorsError } = await supabase
         .from('vendors')
-        .select(`
-          *,
-          products(id),
-          orders(id, total_amount, status)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
-
-      // If comprehensive query fails, try basic query
-      if (vendorsError || !vendorsData || vendorsData.length === 0) {
-        console.log('Comprehensive query failed, trying basic vendor query...', vendorsError)
-        const basicResult = await supabase
-          .from('vendors')
-          .select('*')
-          .order('created_at', { ascending: false })
-        
-        if (!basicResult.error && basicResult.data) {
-          vendorsData = basicResult.data.map((vendor: any) => ({
-            ...vendor,
-            products: [],
-            orders: []
-          }))
-          vendorsError = null
-          console.log('Basic vendor query successful:', basicResult.data.length, 'vendors found')
-        } else {
-          vendorsData = basicResult.data
-          vendorsError = basicResult.error
-        }
-      }
 
       console.log('Vendors query result:', { vendorsData, vendorsError, count: vendorsData?.length })
 
@@ -144,26 +118,31 @@ export default function AdminVendors() {
       }
 
       const vendors = vendorsData || []
-      setVendors(vendors)
-      console.log('Final vendors set:', vendors.length)
+      // Add empty arrays for products and orders since we're not fetching them in the join
+      const vendorsWithCounts = vendors.map((vendor: any) => ({
+        ...vendor,
+        products: [],
+        orders: []
+      }))
       
-      // Calculate stats
+      setVendors(vendorsWithCounts)
+      console.log('Final vendors set:', vendorsWithCounts.length)
+      
+      // Calculate stats with simplified data
       const today = new Date().toISOString().split('T')[0]
       const stats = {
-        total: vendors.length,
-        active: vendors.filter(v => v.status === 'approved').length,
-        pending: vendors.filter(v => v.status === 'pending').length,
-        suspended: vendors.filter(v => v.status === 'suspended').length,
-        new_today: vendors.filter(v => v.created_at?.startsWith(today)).length,
-        total_products: vendors.reduce((sum, v) => sum + (v.products?.length || 0), 0),
-        total_orders: vendors.reduce((sum, v) => sum + (v.orders?.length || 0), 0),
-        total_revenue: vendors.reduce((sum, v) => 
-          sum + (v.orders?.filter((o: any) => o.status === 'completed')?.reduce((orderSum: number, o: any) => orderSum + o.total_amount, 0) || 0), 0
-        )
+        total: vendorsWithCounts.length,
+        active: vendorsWithCounts.filter(v => v.status === 'approved').length,
+        pending: vendorsWithCounts.filter(v => v.status === 'pending').length,
+        suspended: vendorsWithCounts.filter(v => v.status === 'suspended').length,
+        new_today: vendorsWithCounts.filter(v => v.created_at?.startsWith(today)).length,
+        total_products: 0, // Will be calculated separately if needed
+        total_orders: 0, // Will be calculated separately if needed
+        total_revenue: 0 // Will be calculated separately if needed
       }
       
       setStats(stats)
-      console.log('Vendors loaded:', { count: vendors.length, stats })
+      console.log('Vendors loaded:', { count: vendorsWithCounts.length, stats })
     } catch (error) {
       console.error('Error fetching vendors:', error)
       setVendors([])

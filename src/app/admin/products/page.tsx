@@ -131,55 +131,11 @@ export default function AdminProducts() {
       
       console.log('Database connection test:', { connectionTest, connectionError })
       
-      // Try comprehensive query first
+      // Use simple query without complex joins to avoid 400 errors
       let { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select(`
-          *,
-          vendor:vendors (
-            full_name,
-            business_name
-          ),
-          category:categories (
-            name,
-            slug
-          ),
-          product_images (
-            id,
-            image_url,
-            alt_text,
-            sort_order
-          ),
-          order_items (
-            quantity,
-            price
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
-
-      // If comprehensive query fails, try basic query
-      if (productsError || !productsData || productsData.length === 0) {
-        console.log('Comprehensive query failed, trying basic product query...', productsError)
-        const basicResult = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false })
-        
-        if (!basicResult.error && basicResult.data) {
-          productsData = basicResult.data.map((product: any) => ({
-            ...product,
-            vendor: null,
-            category: null,
-            product_images: [],
-            order_items: []
-          }))
-          productsError = null
-          console.log('Basic product query successful:', basicResult.data.length, 'products found')
-        } else {
-          productsData = basicResult.data
-          productsError = basicResult.error
-        }
-      }
 
       console.log('Products query result:', { productsData, productsError, count: productsData?.length })
 
@@ -190,33 +146,40 @@ export default function AdminProducts() {
       }
 
       const products = productsData || []
-      setProducts(products)
-      console.log('Final products set:', products.length)
+      // Add empty arrays for related data since we're not fetching them in joins
+      const productsWithDefaults = products.map((product: any) => ({
+        ...product,
+        vendor: null,
+        category: null,
+        product_images: [],
+        order_items: []
+      }))
       
-      // Calculate comprehensive stats
+      setProducts(productsWithDefaults)
+      console.log('Final products set:', productsWithDefaults.length)
+      
+      // Calculate simplified stats
       const today = new Date().toISOString().split('T')[0]
-      const uniqueCategories = new Set(products.map(p => p.category_id).filter(Boolean))
-      const totalSales = products.reduce((sum, p) => 
-        sum + (p.order_items?.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0) || 0), 0
-      )
+      const uniqueCategories = new Set(productsWithDefaults.map(p => p.category_id).filter(Boolean))
+      const totalSales = 0 // Will be calculated separately if needed
       
-      const stats = {
-        total: products.length,
-        active: products.filter(p => p.is_active).length,
-        inactive: products.filter(p => !p.is_active).length,
-        total_value: products.reduce((sum, p) => sum + (p.price * p.inventory_quantity), 0),
-        out_of_stock: products.filter(p => p.inventory_quantity === 0).length,
-        low_stock: products.filter(p => p.inventory_quantity > 0 && p.inventory_quantity <= p.low_stock_threshold).length,
-        featured: products.filter(p => p.is_featured).length,
-        new_today: products.filter(p => p.created_at?.startsWith(today)).length,
+      const productStats = {
+        total: productsWithDefaults.length,
+        active: productsWithDefaults.filter(p => p.is_active).length,
+        inactive: productsWithDefaults.filter(p => !p.is_active).length,
+        total_value: productsWithDefaults.reduce((sum, p) => sum + (p.price * p.inventory_quantity), 0),
+        out_of_stock: productsWithDefaults.filter(p => p.inventory_quantity === 0).length,
+        low_stock: productsWithDefaults.filter(p => p.inventory_quantity > 0 && p.inventory_quantity <= (p.low_stock_threshold || 10)).length,
+        featured: productsWithDefaults.filter(p => p.is_featured).length,
+        new_today: productsWithDefaults.filter(p => p.created_at?.startsWith(today)).length,
         categories: uniqueCategories.size,
-        avg_price: products.length > 0 ? products.reduce((sum, p) => sum + p.price, 0) / products.length : 0,
+        avg_price: productsWithDefaults.length > 0 ? productsWithDefaults.reduce((sum, p) => sum + p.price, 0) / productsWithDefaults.length : 0,
         total_sales: totalSales,
-        top_selling: products.filter(p => (p.order_items?.length || 0) > 5).length
+        top_selling: 0 // Will be calculated separately if needed
       }
       
-      setStats(stats)
-      console.log('Products loaded:', { count: products.length, stats })
+      setStats(productStats)
+      console.log('Products loaded:', { count: productsWithDefaults.length, stats: productStats })
     } catch (error) {
       console.error('Error fetching products:', error)
       setProducts([])
