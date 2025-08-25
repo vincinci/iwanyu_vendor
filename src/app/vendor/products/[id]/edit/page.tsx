@@ -45,10 +45,6 @@ interface FormData {
   price: string
   inventory_quantity: string
   category_id: string
-  sku: string
-  weight: string
-  meta_title: string
-  meta_description: string
   is_active: boolean
 }
 
@@ -71,10 +67,6 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
     price: '',
     inventory_quantity: '',
     category_id: '',
-    sku: '',
-    weight: '',
-    meta_title: '',
-    meta_description: '',
     is_active: true
   })
 
@@ -135,10 +127,6 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
           price: productData.price?.toString() || '',
           inventory_quantity: productData.stock_quantity?.toString() || '',
           category_id: productData.category || '',
-          sku: productData.sku || '',
-          weight: productData.weight?.toString() || '',
-          meta_title: productData.meta_title || '',
-          meta_description: productData.meta_description || '',
           is_active: productData.is_active
         })
 
@@ -262,10 +250,6 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
         price: parseFloat(formData.price),
         stock_quantity: parseInt(formData.inventory_quantity) || 0,
         category: formData.category_id || null,
-        sku: formData.sku.trim() || null,
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        meta_title: formData.meta_title.trim() || null,
-        meta_description: formData.meta_description.trim() || null,
         is_active: formData.is_active,
         updated_at: new Date().toISOString()
       }
@@ -499,31 +483,6 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        SKU
-                      </label>
-                      <Input
-                        name="sku"
-                        value={formData.sku}
-                        onChange={handleInputChange}
-                        placeholder="Product SKU"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Weight (grams)
-                      </label>
-                      <Input
-                        name="weight"
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={formData.weight}
-                        onChange={handleInputChange}
-                        placeholder="0"
-                      />
-                    </div>
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -548,39 +507,6 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
                       onChange={handleInputChange}
                       placeholder="Describe your product..."
                       rows={4}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* SEO Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>SEO Information</CardTitle>
-                  <CardDescription>Optimize your product for search engines</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Meta Title
-                    </label>
-                    <Input
-                      name="meta_title"
-                      value={formData.meta_title}
-                      onChange={handleInputChange}
-                      placeholder="SEO title for search engines"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Meta Description
-                    </label>
-                    <Textarea
-                      name="meta_description"
-                      value={formData.meta_description}
-                      onChange={handleInputChange}
-                      placeholder="Brief description for search engine results"
-                      rows={3}
                     />
                   </div>
                 </CardContent>
