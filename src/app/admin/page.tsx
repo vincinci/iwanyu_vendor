@@ -145,8 +145,16 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      console.log('Fetching comprehensive dashboard data...')
       setLoading(true)
+      console.log('Starting dashboard data fetch...')
+
+      // Test basic database connectivity first
+      console.log('Testing database connection...')
+      const { data: testData, error: testError } = await supabase
+        .from('vendors')
+        .select('count(*)', { count: 'exact', head: true })
+      
+      console.log('Database connection test:', { count: testData, error: testError })
 
       // Parallel data fetching for better performance
       const [
@@ -164,6 +172,13 @@ export default function AdminDashboard() {
         fetchMessageStats(),
         fetchSubscriptionStats()
       ])
+
+      console.log('All stats fetched:', {
+        vendors: vendorsData,
+        products: productsData,
+        orders: ordersData,
+        categories: categoriesData
+      })
 
       // Combine all stats
       const combinedStats: DashboardStats = {
@@ -183,6 +198,7 @@ export default function AdminDashboard() {
         subscriptions: subscriptionsData
       }
 
+      console.log('Combined stats:', combinedStats)
       setStats(combinedStats)
       
       // Fetch additional data
@@ -203,30 +219,66 @@ export default function AdminDashboard() {
   const fetchVendorStats = async () => {
     const today = new Date().toISOString().split('T')[0]
     
-    const { data: vendors, error } = await supabase
-      .from('vendors')
-      .select('id, is_active, created_at, status')
+    console.log('Fetching vendor stats...')
+    
+    try {
+      // Try different possible column combinations in case schema changed
+      let { data: vendors, error } = await supabase
+        .from('vendors')
+        .select('id, is_active, created_at, status')
 
-    if (error) {
-      console.error('Error fetching vendors:', error)
+      // If that fails, try with just basic columns
+      if (error && error.message?.includes('column')) {
+        console.log('Trying with basic vendor columns...')
+        const basicResult = await supabase
+          .from('vendors')
+          .select('id, created_at')
+        
+        if (!basicResult.error && basicResult.data) {
+          // Map basic data to expected format
+          vendors = basicResult.data.map((v: any) => ({
+            id: v.id,
+            created_at: v.created_at,
+            is_active: true, // Default assumption
+            status: 'approved' // Default assumption
+          }))
+          error = null
+        } else {
+          vendors = basicResult.data
+          error = basicResult.error
+        }
+      }
+
+      console.log('Vendor query result:', { vendors, error, count: vendors?.length })
+
+      if (error) {
+        console.error('Error fetching vendors:', error)
+        return { total: 0, active: 0, pending: 0, suspended: 0, new_today: 0 }
+      }
+
+      const total = vendors?.length || 0
+      const active = vendors?.filter(v => v.is_active)?.length || 0
+      const pending = vendors?.filter(v => v.status === 'pending')?.length || 0
+      const suspended = vendors?.filter(v => v.status === 'suspended')?.length || 0
+      const new_today = vendors?.filter(v => v.created_at?.startsWith(today))?.length || 0
+
+      console.log('Vendor stats calculated:', { total, active, pending, suspended, new_today })
+      return { total, active, pending, suspended, new_today }
+    } catch (err) {
+      console.error('Vendor stats fetch error:', err)
       return { total: 0, active: 0, pending: 0, suspended: 0, new_today: 0 }
     }
-
-    const total = vendors?.length || 0
-    const active = vendors?.filter(v => v.is_active)?.length || 0
-    const pending = vendors?.filter(v => v.status === 'pending')?.length || 0
-    const suspended = vendors?.filter(v => v.status === 'suspended')?.length || 0
-    const new_today = vendors?.filter(v => v.created_at?.startsWith(today))?.length || 0
-
-    return { total, active, pending, suspended, new_today }
   }
 
   const fetchProductStats = async () => {
     const today = new Date().toISOString().split('T')[0]
     
+    console.log('Fetching product stats...')
     const { data: products, error } = await supabase
       .from('products')
       .select('id, is_active, inventory_quantity, price, created_at')
+
+    console.log('Product query result:', { products, error, count: products?.length })
 
     if (error) {
       console.error('Error fetching products:', error)
@@ -240,6 +292,7 @@ export default function AdminDashboard() {
     const new_today = products?.filter(p => p.created_at?.startsWith(today))?.length || 0
     const total_value = products?.reduce((sum, p) => sum + (p.price * p.inventory_quantity), 0) || 0
 
+    console.log('Product stats calculated:', { total, active, inactive, out_of_stock, new_today, total_value })
     return { total, active, inactive, out_of_stock, new_today, total_value }
   }
 

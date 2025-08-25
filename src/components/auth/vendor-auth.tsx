@@ -33,6 +33,7 @@ export function VendorAuth() {
     try {
       if (isSignUp) {
         console.log('Attempting sign up...')
+        
         // Sign up new vendor with email confirmation required
         const { data, error } = await supabase.auth.signUp({
           email: formData.email,
@@ -139,7 +140,12 @@ export function VendorAuth() {
       // Show user-friendly error messages
       let userFriendlyMessage = 'Unable to sign in. Please check your credentials and try again.'
       
-      if (errorMessage.toLowerCase().includes('database')) {
+      if (errorMessage.toLowerCase().includes('user already registered') || 
+          errorMessage.toLowerCase().includes('email already registered') ||
+          errorMessage.toLowerCase().includes('already been registered') ||
+          errorMessage.toLowerCase().includes('email address is already in use')) {
+        userFriendlyMessage = 'This email address is already registered. Please use a different email or try signing in instead.'
+      } else if (errorMessage.toLowerCase().includes('database')) {
         userFriendlyMessage = 'Service temporarily unavailable. Please try again in a moment.'
       } else if (errorMessage.toLowerCase().includes('invalid')) {
         userFriendlyMessage = 'Invalid email or password. Please check your credentials.'
@@ -149,6 +155,8 @@ export function VendorAuth() {
         userFriendlyMessage = 'Account not found. Please check your email address or sign up for a new account.'
       } else if (errorMessage.toLowerCase().includes('password')) {
         userFriendlyMessage = 'Incorrect password. Please try again or reset your password.'
+      } else if (isSignUp && errorMessage.toLowerCase().includes('signup')) {
+        userFriendlyMessage = 'Unable to create account. Please try again or contact support if the problem persists.'
       }
       
       setError(userFriendlyMessage)
