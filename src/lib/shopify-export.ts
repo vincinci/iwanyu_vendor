@@ -246,9 +246,9 @@ export class ShopifyExporter {
         'Variant Requires Shipping': 'TRUE',
         'Variant Taxable': 'TRUE',
         'Variant Barcode': '',
-        'Image Src': mainImage?.image_url && mainImage.image_url.trim() !== '' ? mainImage.image_url : '',
-        'Image Position': mainImage ? '1' : '',
-        'Image Alt Text': mainImage?.alt_text || productName,
+        'Image Src': '',  // Main product rows have no image data
+        'Image Position': '',  // Main product rows have no image data
+        'Image Alt Text': '',  // Main product rows have no image data
         'Gift Card': 'FALSE',
         'SEO Title': product.meta_title || productName,
         'SEO Description': product.meta_description || this.createMetaDescription(product.description),
@@ -258,7 +258,7 @@ export class ShopifyExporter {
         'Google Shopping / MPN': product.sku || '',
         'Google Shopping / Condition': 'new',
         'Google Shopping / Custom Product': 'TRUE',
-        'Variant Image': mainImage?.image_url || '',
+        'Variant Image': '',  // Variant images handled separately
         'Variant Weight Unit': 'g',
         'Variant Tax Code': '',
         'Cost per item': '',
@@ -273,15 +273,15 @@ export class ShopifyExporter {
 
       shopifyProducts.push(baseProduct)
 
-      // Add additional images as separate rows (only if they have valid URLs)
-      if (product.product_images && product.product_images.length > 1) {
-        product.product_images.slice(1).forEach((image, index) => {
+      // Add ALL images as separate rows (including main image) - only if they have valid URLs
+      if (product.product_images && product.product_images.length > 0) {
+        product.product_images.forEach((image, index) => {
           // Only create image row if the image URL is valid and not empty
           if (image?.image_url && image.image_url.trim() !== '') {
             const imageRow: ShopifyProduct = { ...this.createEmptyRow() }
             imageRow['Handle'] = handle
             imageRow['Image Src'] = image.image_url
-            imageRow['Image Position'] = (index + 2).toString()
+            imageRow['Image Position'] = (index + 1).toString()
             imageRow['Image Alt Text'] = image.alt_text || productName
             shopifyProducts.push(imageRow)
           }
@@ -319,7 +319,13 @@ export class ShopifyExporter {
 
     shopifyProducts.forEach(product => {
       const row = headers.map(header => {
-        const value = product[header as keyof ShopifyProduct] || ''
+        let value = product[header as keyof ShopifyProduct] || ''
+        
+        // Special handling for image fields - if Image Src is empty, clear all image fields
+        if ((header === 'Image Position' || header === 'Image Alt Text') && (!product['Image Src'] || product['Image Src'].trim() === '')) {
+          value = ''
+        }
+        
         // Escape commas and quotes in CSV
         if (value.includes(',') || value.includes('"') || value.includes('\n')) {
           return `"${value.replace(/"/g, '""')}"`
