@@ -24,7 +24,6 @@ CREATE TABLE vendors (
     status vendor_status DEFAULT 'pending',
     subscription_plan subscription_plan DEFAULT 'free',
     subscription_expires_at TIMESTAMP WITH TIME ZONE,
-    commission_rate DECIMAL(5,2) DEFAULT 10.00,
     total_sales DECIMAL(12,2) DEFAULT 0.00,
     total_orders INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -39,7 +38,6 @@ CREATE TABLE subscription_plans (
     price DECIMAL(10,2) NOT NULL,
     max_products INTEGER,
     max_orders INTEGER,
-    commission_rate DECIMAL(5,2) NOT NULL,
     features JSONB DEFAULT '[]',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -47,11 +45,11 @@ CREATE TABLE subscription_plans (
 );
 
 -- Insert default subscription plans
-INSERT INTO subscription_plans (name, display_name, price, max_products, max_orders, commission_rate, features) VALUES
-('free', 'Free Plan', 0.00, 10, 50, 15.00, '["Basic support", "Limited analytics"]'),
-('basic', 'Basic Plan', 29.99, 100, 500, 12.00, '["Email support", "Basic analytics", "Product variants"]'),
-('standard', 'Standard Plan', 59.99, 500, 2000, 10.00, '["Priority support", "Advanced analytics", "Bulk operations", "Marketing tools"]'),
-('premium', 'Premium Plan', 99.99, NULL, NULL, 8.00, '["24/7 support", "Full analytics", "Custom branding", "API access", "Priority listing"]');
+INSERT INTO subscription_plans (name, display_name, price, max_products, max_orders, features) VALUES
+('free', 'Free Plan', 0.00, 10, 50, '["Basic support", "Limited analytics"]'),
+('basic', 'Basic Plan', 29.99, 100, 500, '["Email support", "Basic analytics", "Product variants"]'),
+('standard', 'Standard Plan', 59.99, 500, 2000, '["Priority support", "Advanced analytics", "Bulk operations", "Marketing tools"]'),
+('premium', 'Premium Plan', 99.99, NULL, NULL, '["24/7 support", "Full analytics", "Custom branding", "API access", "Priority listing"]');
 
 -- Product categories
 CREATE TABLE categories (
@@ -165,8 +163,6 @@ CREATE TABLE orders (
     tax_amount DECIMAL(10,2) DEFAULT 0.00,
     shipping_amount DECIMAL(10,2) DEFAULT 0.00,
     total_amount DECIMAL(10,2) NOT NULL,
-    commission_amount DECIMAL(10,2) NOT NULL,
-    vendor_payout DECIMAL(10,2) NOT NULL,
     status order_status DEFAULT 'pending',
     payment_status VARCHAR(50) DEFAULT 'pending',
     payment_id VARCHAR(255),

@@ -205,8 +205,6 @@ export default function AdminOrders() {
         tax_amount: Number(taxAmount.toFixed(2)),
         shipping_amount: Number(shippingAmount.toFixed(2)),
         total_amount: Number(totalAmount.toFixed(2)),
-        commission_amount: Number((totalAmount * 0.1).toFixed(2)), // 10% commission
-        vendor_payout: Number((totalAmount * 0.9).toFixed(2)),
         status: 'pending',
         payment_status: 'pending',
         notes: createOrderForm.notes || null

@@ -57,7 +57,7 @@ const sidebarItems = [
     icon: ShoppingCart
   },
   {
-    title: 'Mobile Money',
+    title: 'Revenue',
     href: '/admin/payouts',
     icon: Smartphone
   },

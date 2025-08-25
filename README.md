@@ -15,7 +15,7 @@ A comprehensive Next.js-based multi-vendor marketplace with admin dashboard, ven
 - Vendor registration and onboarding
 - Product management
 - Order fulfillment
-- Payout tracking
+- Revenue tracking
 - Message system
 
 ### Technical Features

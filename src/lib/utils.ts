@@ -36,10 +36,6 @@ export function generateOrderNumber() {
   return `IW${Date.now().toString().slice(-8)}`
 }
 
-export function calculateCommission(amount: number, rate: number) {
-  return amount * (rate / 100)
-}
-
 export function getSubscriptionFeatures(plan: string) {
   const features: Record<string, string[]> = {
     free: ['Basic support', 'Limited analytics', 'Up to 10 products'],

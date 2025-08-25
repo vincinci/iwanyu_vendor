@@ -14,7 +14,6 @@ export interface Database {
           status: 'pending' | 'approved' | 'suspended' | 'rejected'
           subscription_plan: 'free' | 'basic' | 'standard' | 'premium'
           subscription_expires_at: string | null
-          commission_rate: number
           total_sales: number
           total_orders: number
           created_at: string
@@ -32,7 +31,6 @@ export interface Database {
           status?: 'pending' | 'approved' | 'suspended' | 'rejected'
           subscription_plan?: 'free' | 'basic' | 'standard' | 'premium'
           subscription_expires_at?: string | null
-          commission_rate?: number
           total_sales?: number
           total_orders?: number
           created_at?: string
@@ -50,7 +48,6 @@ export interface Database {
           status?: 'pending' | 'approved' | 'suspended' | 'rejected'
           subscription_plan?: 'free' | 'basic' | 'standard' | 'premium'
           subscription_expires_at?: string | null
-          commission_rate?: number
           total_sales?: number
           total_orders?: number
           created_at?: string

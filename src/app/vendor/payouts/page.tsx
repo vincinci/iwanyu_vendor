@@ -86,12 +86,12 @@ export default function VendorPayouts() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mobile Money Payouts</h1>
-            <p className="text-gray-600">Track your earnings and MTN/Airtel Mobile Money payments</p>
+            <h1 className="text-2xl font-bold text-gray-900">Revenue & Sales</h1>
+            <p className="text-gray-600">Track your earnings and manage payment settings with our subscription-based model</p>
           </div>
-          <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
             <Download className="mr-2 h-4 w-4" />
-            Request Mobile Money Payout
+            Download Sales Report
           </Button>
         </div>
 

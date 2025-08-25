@@ -24,25 +24,21 @@ import {
   TrendingUp
 } from 'lucide-react'
 
-interface Subscription {
+interface VendorSubscription {
   id: string
   vendor_id: string
+  vendor_name: string
+  business_name: string
   plan_name: string
   display_name: string
   price: number
   max_products: number | null
   max_orders: number | null
-  commission_rate: number
   features: string[]
   is_active: boolean
   started_at: string
   expires_at: string | null
   created_at: string
-  vendor?: {
-    full_name: string
-    business_name: string
-    email: string
-  }
 }
 
 interface SubscriptionStats {
@@ -58,7 +54,7 @@ interface SubscriptionStats {
 }
 
 export default function AdminSubscriptions() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [subscriptions, setSubscriptions] = useState<VendorSubscription[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [planFilter, setPlanFilter] = useState('')
@@ -98,7 +94,7 @@ export default function AdminSubscriptions() {
         .select('id, full_name, business_name, email, status, subscription_plan, subscription_expires_at, created_at')
 
       if (vendorsData) {
-        const mockSubscriptions: Subscription[] = vendorsData.map(vendor => ({
+        const mockSubscriptions: VendorSubscription[] = vendorsData.map(vendor => ({
           id: `sub-${vendor.id}`,
           vendor_id: vendor.id,
           plan_name: vendor.subscription_plan || 'free',
@@ -116,10 +112,6 @@ export default function AdminSubscriptions() {
           max_orders: vendor.subscription_plan === 'free' ? 50 :
                      vendor.subscription_plan === 'basic' ? 500 :
                      vendor.subscription_plan === 'standard' ? 2000 : null,
-          commission_rate: vendor.subscription_plan === 'free' ? 15 :
-                          vendor.subscription_plan === 'basic' ? 12 :
-                          vendor.subscription_plan === 'standard' ? 10 :
-                          vendor.subscription_plan === 'premium' ? 8 : 15,
           features: vendor.subscription_plan === 'free' ? ['Basic support', 'Limited analytics'] :
                    vendor.subscription_plan === 'basic' ? ['Email support', 'Basic analytics', 'Product variants'] :
                    vendor.subscription_plan === 'standard' ? ['Priority support', 'Advanced analytics', 'Bulk operations', 'Marketing tools'] :
@@ -129,11 +121,8 @@ export default function AdminSubscriptions() {
           started_at: vendor.created_at,
           expires_at: vendor.subscription_expires_at,
           created_at: vendor.created_at,
-          vendor: {
-            full_name: vendor.full_name,
-            business_name: vendor.business_name,
-            email: vendor.email
-          }
+          vendor_name: vendor.full_name,
+          business_name: vendor.business_name
         }))
 
         setSubscriptions(mockSubscriptions)
@@ -185,9 +174,9 @@ export default function AdminSubscriptions() {
   // Filter subscriptions
   const filteredSubscriptions = subscriptions.filter(subscription => {
     const matchesSearch = !searchTerm || 
-      subscription.vendor?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subscription.vendor?.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subscription.vendor?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      subscription.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      subscription.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      subscription.plan_name?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesPlan = !planFilter || subscription.plan_name === planFilter
     const matchesStatus = !statusFilter || 
@@ -339,13 +328,13 @@ export default function AdminSubscriptions() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="font-semibold text-lg">
-                              {subscription.vendor?.business_name || subscription.vendor?.full_name || 'Unknown Vendor'}
+                              {subscription.business_name || subscription.vendor_name || 'Unknown Vendor'}
                             </h3>
                             {getPlanBadge(subscription.plan_name)}
                             {getStatusBadge(subscription.is_active, subscription.expires_at)}
                           </div>
                           
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-4">
+                          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
                             <div>
                               <span className="font-medium">Plan:</span> {subscription.display_name}
                             </div>
@@ -353,15 +342,12 @@ export default function AdminSubscriptions() {
                               <span className="font-medium">Price:</span> ${subscription.price}/month
                             </div>
                             <div>
-                              <span className="font-medium">Commission:</span> {subscription.commission_rate}%
-                            </div>
-                            <div>
                               <span className="font-medium">Products:</span> {subscription.max_products || 'Unlimited'}
                             </div>
                           </div>
 
                           <div className="flex flex-wrap gap-1 mb-4">
-                            {subscription.features.map((feature, index) => (
+                            {subscription.features.map((feature: string, index: number) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {feature}
                               </Badge>

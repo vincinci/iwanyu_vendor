@@ -32,7 +32,6 @@ interface AdminSettings {
   site_url: string
   admin_email: string
   support_email: string
-  default_commission_rate: number
   default_tax_rate: number
   default_shipping_rate: number
   maintenance_mode: boolean
@@ -57,7 +56,6 @@ export default function AdminSettings() {
     site_url: 'https://iwanyu.store',
     admin_email: 'admin@iwanyu.store',
     support_email: 'support@iwanyu.store',
-    default_commission_rate: 10,
     default_tax_rate: 18,
     default_shipping_rate: 5000,
     maintenance_mode: false,
@@ -237,19 +235,7 @@ export default function AdminSettings() {
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-lg font-medium mb-4">Business Settings</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Default Commission Rate (%)</label>
-                          <Input
-                            type="number"
-                            value={settings.default_commission_rate}
-                            onChange={(e) => updateSetting('default_commission_rate', parseFloat(e.target.value))}
-                            placeholder="10"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                          />
-                        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium mb-1">Default Tax Rate (%)</label>
                           <Input
