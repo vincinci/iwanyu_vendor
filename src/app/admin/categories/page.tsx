@@ -109,15 +109,46 @@ export default function AdminCategories() {
       // Fetch product counts for each category
       const categoriesWithCounts = await Promise.all(
         categories.map(async (category: any) => {
-          const { count } = await supabase
-            .from('products')
-            .select('*', { count: 'exact', head: true })
-            .eq('category_id', category.id)
-            .eq('is_active', true)
-          
-          return {
-            ...category,
-            product_count: count || 0
+          try {
+            // Try different query approaches for better compatibility
+            let count = 0
+            
+            // First try: HEAD request with count
+            const { count: headCount, error: headError } = await supabase
+              .from('products')
+              .select('*', { count: 'exact', head: true })
+              .eq('category_id', category.id)
+              .eq('is_active', true)
+            
+            if (!headError && headCount !== null) {
+              count = headCount
+            } else {
+              // Fallback: Regular select and count manually
+              console.log('HEAD count failed for category', category.id, 'trying SELECT:', headError)
+              const { data: products, error: selectError } = await supabase
+                .from('products')
+                .select('id')
+                .eq('category_id', category.id)
+                .eq('is_active', true)
+              
+              if (!selectError && products) {
+                count = products.length
+              } else {
+                console.log('SELECT also failed for category', category.id, ':', selectError)
+                count = 0
+              }
+            }
+            
+            return {
+              ...category,
+              product_count: count
+            }
+          } catch (error) {
+            console.error('Error fetching product count for category', category.id, ':', error)
+            return {
+              ...category,
+              product_count: 0
+            }
           }
         })
       )
