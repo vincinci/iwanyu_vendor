@@ -166,8 +166,18 @@ export default function AdminOrders() {
 
   const createOrder = async () => {
     try {
+      console.log('Creating order with form data:', createOrderForm)
+      
       if (!createOrderForm.vendor_id || !createOrderForm.customer_email || !createOrderForm.customer_name) {
         alert('Please fill in all required fields')
+        return
+      }
+
+      // Validate shipping address
+      if (!createOrderForm.shipping_address.street || 
+          !createOrderForm.shipping_address.city || 
+          !createOrderForm.shipping_address.district) {
+        alert('Please fill in complete shipping address (street, city, district)')
         return
       }
 
@@ -182,48 +192,63 @@ export default function AdminOrders() {
       const shippingAmount = 5000 // Fixed shipping: 5000 RWF
       const totalAmount = subtotal + taxAmount + shippingAmount
 
+      // Prepare order data that matches the database schema exactly
+      const orderData = {
+        order_number: orderNumber,
+        vendor_id: createOrderForm.vendor_id,
+        customer_email: createOrderForm.customer_email,
+        customer_name: createOrderForm.customer_name,
+        customer_phone: createOrderForm.customer_phone || null,
+        shipping_address: createOrderForm.shipping_address,
+        billing_address: createOrderForm.shipping_address, // Use same as shipping for now
+        subtotal: Number(subtotal.toFixed(2)),
+        tax_amount: Number(taxAmount.toFixed(2)),
+        shipping_amount: Number(shippingAmount.toFixed(2)),
+        total_amount: Number(totalAmount.toFixed(2)),
+        commission_amount: Number((totalAmount * 0.1).toFixed(2)), // 10% commission
+        vendor_payout: Number((totalAmount * 0.9).toFixed(2)),
+        status: 'pending',
+        payment_status: 'pending',
+        notes: createOrderForm.notes || null
+      }
+
+      console.log('Prepared order data for insertion:', orderData)
+
       // Create order
-      const { data: orderData, error: orderError } = await supabase
+      const { data: createdOrder, error: orderError } = await supabase
         .from('orders')
-        .insert({
-          order_number: orderNumber,
-          vendor_id: createOrderForm.vendor_id,
-          customer_email: createOrderForm.customer_email,
-          customer_name: createOrderForm.customer_name,
-          customer_phone: createOrderForm.customer_phone,
-          shipping_address: createOrderForm.shipping_address,
-          billing_address: createOrderForm.shipping_address,
-          subtotal: subtotal,
-          tax_amount: taxAmount,
-          shipping_amount: shippingAmount,
-          total_amount: totalAmount,
-          commission_amount: totalAmount * 0.1, // 10% commission
-          vendor_payout: totalAmount * 0.9,
-          status: 'pending',
-          payment_status: 'pending',
-          notes: createOrderForm.notes
-        })
+        .insert(orderData)
         .select()
         .single()
 
-      if (orderError) throw orderError
+      if (orderError) {
+        console.error('Order creation error:', orderError)
+        throw new Error(`Failed to create order: ${orderError.message}`)
+      }
+
+      console.log('Order created successfully:', createdOrder)
 
       // Create order items
       const orderItems = createOrderForm.items.map(item => ({
-        order_id: orderData.id,
+        order_id: createdOrder.id,
         product_id: item.product_id,
         quantity: item.quantity,
-        price: item.price,
-        total: item.price * item.quantity
+        price: Number(item.price.toFixed(2)),
+        total: Number((item.price * item.quantity).toFixed(2))
       }))
+
+      console.log('Creating order items:', orderItems)
 
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItems)
 
-      if (itemsError) throw itemsError
+      if (itemsError) {
+        console.error('Order items creation error:', itemsError)
+        throw new Error(`Failed to create order items: ${itemsError.message}`)
+      }
 
-      console.log('Order created successfully:', orderData)
+      console.log('Order items created successfully')
       
       // Reset form and close modal
       setCreateOrderForm({
@@ -245,9 +270,11 @@ export default function AdminOrders() {
       
       // Refresh orders
       fetchOrders()
+      
+      alert('Order created successfully!')
     } catch (error) {
       console.error('Error creating order:', error)
-      alert('Failed to create order. Please try again.')
+      alert(`Failed to create order: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
