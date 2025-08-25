@@ -146,12 +146,40 @@ export default function AdminProducts() {
       }
 
       const products = productsData || []
-      // Add empty arrays for related data since we're not fetching them in joins
+      
+      // Fetch product images separately to avoid join issues
+      let productImages: any[] = []
+      if (products.length > 0) {
+        const productIds = products.map(p => p.id)
+        const { data: imagesData, error: imagesError } = await supabase
+          .from('product_images')
+          .select('*')
+          .in('product_id', productIds)
+          .order('sort_order', { ascending: true })
+        
+        if (!imagesError && imagesData) {
+          productImages = imagesData
+          console.log('Product images fetched:', productImages.length)
+        } else {
+          console.log('Error fetching product images or no images found:', imagesError)
+        }
+      }
+      
+      // Group images by product_id
+      const imagesByProductId = productImages.reduce((acc: any, image: any) => {
+        if (!acc[image.product_id]) {
+          acc[image.product_id] = []
+        }
+        acc[image.product_id].push(image)
+        return acc
+      }, {})
+      
+      // Add related data with actual product images
       const productsWithDefaults = products.map((product: any) => ({
         ...product,
         vendor: null,
         category: null,
-        product_images: [],
+        product_images: imagesByProductId[product.id] || [],
         order_items: []
       }))
       
@@ -526,6 +554,14 @@ export default function AdminProducts() {
                                   src={product.product_images[0].image_url}
                                   alt={product.name}
                                   className="w-16 h-16 object-cover rounded-lg"
+                                  onError={(e) => {
+                                    console.log('Image failed to load:', product.product_images?.[0]?.image_url);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = '<div class="h-8 w-8 text-gray-300"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16h6v6"/><path d="M21 16v-3.293a1 1 0 0 0-.293-.707L12 3.293A1 1 0 0 0 11 3H2v6"/><path d="M8 21h8v-6"/></svg></div>';
+                                    }
+                                  }}
                                 />
                               ) : (
                                 <Package className="h-8 w-8 text-gray-300" />
@@ -574,6 +610,14 @@ export default function AdminProducts() {
                               src={product.product_images[0].image_url}
                               alt={product.product_images[0].alt_text || product.name}
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.log('Grid image failed to load:', product.product_images?.[0]?.image_url);
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                const parent = (e.target as HTMLImageElement).parentElement;
+                                if (parent) {
+                                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><div class="h-16 w-16 text-gray-300"><svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16h6v6"/><path d="M21 16v-3.293a1 1 0 0 0-.293-.707L12 3.293A1 1 0 0 0 11 3H2v6"/><path d="M8 21h8v-6"/></svg></div></div>';
+                                }
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
