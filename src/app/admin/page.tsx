@@ -222,42 +222,22 @@ export default function AdminDashboard() {
     console.log('Fetching vendor stats...')
     
     try {
-      // Try different possible column combinations in case schema changed
-      let { data: vendors, error } = await supabase
+      // Use correct schema: vendors table has 'status' enum, not 'is_active'
+      const { data: vendors, error } = await supabase
         .from('vendors')
-        .select('id, is_active, created_at, status')
+        .select('id, status, created_at')
 
-      // If that fails, try with just basic columns
-      if (error && error.message?.includes('column')) {
-        console.log('Trying with basic vendor columns...')
-        const basicResult = await supabase
-          .from('vendors')
-          .select('id, created_at')
-        
-        if (!basicResult.error && basicResult.data) {
-          // Map basic data to expected format
-          vendors = basicResult.data.map((v: any) => ({
-            id: v.id,
-            created_at: v.created_at,
-            is_active: true, // Default assumption
-            status: 'approved' // Default assumption
-          }))
-          error = null
-        } else {
-          vendors = basicResult.data
-          error = basicResult.error
-        }
+      if (error) {
+        console.error('Error fetching vendors:', error)
+        // Return empty stats if query fails
+        return { total: 0, active: 0, pending: 0, suspended: 0, new_today: 0 }
       }
 
       console.log('Vendor query result:', { vendors, error, count: vendors?.length })
 
-      if (error) {
-        console.error('Error fetching vendors:', error)
-        return { total: 0, active: 0, pending: 0, suspended: 0, new_today: 0 }
-      }
-
       const total = vendors?.length || 0
-      const active = vendors?.filter(v => v.is_active)?.length || 0
+      // Use status enum values: 'approved' is active, 'pending' is pending, etc.
+      const active = vendors?.filter(v => v.status === 'approved')?.length || 0
       const pending = vendors?.filter(v => v.status === 'pending')?.length || 0
       const suspended = vendors?.filter(v => v.status === 'suspended')?.length || 0
       const new_today = vendors?.filter(v => v.created_at?.startsWith(today))?.length || 0
@@ -346,7 +326,7 @@ export default function AdminDashboard() {
   const fetchMessageStats = async () => {
     const { data: messages, error } = await supabase
       .from('messages')
-      .select('id, is_read')
+      .select('id, status')
 
     if (error) {
       console.error('Error fetching messages:', error)
@@ -354,24 +334,25 @@ export default function AdminDashboard() {
     }
 
     const total = messages?.length || 0
-    const unread = messages?.filter(m => !m.is_read)?.length || 0
+    const unread = messages?.filter(m => m.status === 'unread')?.length || 0
 
     return { unread, total }
   }
 
   const fetchSubscriptionStats = async () => {
+    // Use vendor_subscriptions table instead of subscriptions
     const { data: subscriptions, error } = await supabase
-      .from('subscriptions')
-      .select('id, status, amount')
+      .from('vendor_subscriptions')
+      .select('id, is_active, amount_paid')
 
     if (error) {
       console.error('Error fetching subscriptions:', error)
       return { active: 0, expired: 0, total_revenue: 0 }
     }
 
-    const active = subscriptions?.filter(s => s.status === 'active')?.length || 0
-    const expired = subscriptions?.filter(s => s.status === 'expired')?.length || 0
-    const total_revenue = subscriptions?.filter(s => s.status === 'active')?.reduce((sum, s) => sum + s.amount, 0) || 0
+    const active = subscriptions?.filter(s => s.is_active)?.length || 0
+    const expired = subscriptions?.filter(s => !s.is_active)?.length || 0
+    const total_revenue = subscriptions?.filter(s => s.is_active)?.reduce((sum, s) => sum + s.amount_paid, 0) || 0
 
     return { active, expired, total_revenue }
   }

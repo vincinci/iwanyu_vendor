@@ -38,17 +38,14 @@ interface Vendor {
   full_name: string
   business_name: string | null
   email: string
-  phone: string | null
-  address: string | null
-  city: string | null
-  district: string | null
-  country: string
-  is_active: boolean
-  status: string
+  phone_number: string | null
+  business_address: string | null
+  status: 'pending' | 'approved' | 'suspended' | 'rejected'
+  subscription_plan: 'free' | 'basic' | 'standard' | 'premium'
   created_at: string
   updated_at: string
-  profile_image_url: string | null
-  business_type: string | null
+  total_sales: number
+  total_orders: number
   products?: { id: string }[]
   orders?: { id: string, total_amount: number, status: string }[]
 }
@@ -154,7 +151,7 @@ export default function AdminVendors() {
       const today = new Date().toISOString().split('T')[0]
       const stats = {
         total: vendors.length,
-        active: vendors.filter(v => v.is_active).length,
+        active: vendors.filter(v => v.status === 'approved').length,
         pending: vendors.filter(v => v.status === 'pending').length,
         suspended: vendors.filter(v => v.status === 'suspended').length,
         new_today: vendors.filter(v => v.created_at?.startsWith(today)).length,
@@ -175,7 +172,7 @@ export default function AdminVendors() {
     }
   }
 
-    const handleStatusUpdate = async (vendorId: string, newStatus: string) => {
+    const handleStatusUpdate = async (vendorId: string, newStatus: 'pending' | 'approved' | 'suspended' | 'rejected') => {
     try {
       console.log(`Updating vendor ${vendorId} status to: ${newStatus}`)
       
@@ -205,24 +202,21 @@ export default function AdminVendors() {
 
   const handleVendorApproval = async (vendorId: string, action: 'approve' | 'reject' | 'suspend') => {
     try {
-      let newStatus: string
+      let newStatus: 'pending' | 'approved' | 'suspended' | 'rejected'
       let updateData: any = { updated_at: new Date().toISOString() }
       
       switch (action) {
         case 'approve':
           newStatus = 'approved'
           updateData.status = 'approved'
-          updateData.is_active = true
           break
         case 'reject':
           newStatus = 'rejected' 
           updateData.status = 'rejected'
-          updateData.is_active = false
           break
         case 'suspend':
           newStatus = 'suspended'
           updateData.status = 'suspended'  
-          updateData.is_active = false
           break
         default:
           return
@@ -241,8 +235,7 @@ export default function AdminVendors() {
       setVendors(prev => prev.map(vendor => 
         vendor.id === vendorId ? { 
           ...vendor, 
-          status: newStatus,
-          is_active: updateData.is_active ?? vendor.is_active 
+          status: newStatus
         } : vendor
       ))
       
@@ -256,14 +249,14 @@ export default function AdminVendors() {
   }
 
   const getStatusBadge = (vendor: Vendor) => {
-    if (vendor.status === 'approved' && vendor.is_active) {
+    if (vendor.status === 'approved') {
       return <Badge className="bg-green-100 text-green-800">Active</Badge>
     } else if (vendor.status === 'pending') {
       return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
     } else if (vendor.status === 'suspended') {
       return <Badge className="bg-red-100 text-red-800">Suspended</Badge>
     } else {
-      return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
+      return <Badge className="bg-gray-100 text-gray-800">Rejected</Badge>
     }
   }
 
@@ -287,13 +280,12 @@ export default function AdminVendors() {
     const matchesSearch = !searchTerm || 
       vendor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.city?.toLowerCase().includes(searchTerm.toLowerCase())
+      vendor.business_address?.toLowerCase().includes(searchTerm.toLowerCase())
     
-    // Update status filter logic to handle 'active' filter
+    // Update status filter logic to use status enum
     const matchesStatus = !statusFilter || 
       statusFilter === 'all' ||
-      (statusFilter === 'active' && vendor.is_active) ||
+      (statusFilter === 'active' && vendor.status === 'approved') ||
       (statusFilter !== 'active' && vendor.status === statusFilter)
     
     return matchesSearch && matchesStatus
@@ -448,15 +440,7 @@ export default function AdminVendors() {
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                              {vendor.profile_image_url ? (
-                                <img
-                                  src={vendor.profile_image_url}
-                                  alt={vendor.full_name}
-                                  className="w-12 h-12 rounded-full object-cover"
-                                />
-                              ) : (
-                                <Users className="h-6 w-6 text-blue-600" />
-                              )}
+                              <Users className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
                               <h3 className="font-semibold text-lg">{vendor.full_name}</h3>
@@ -478,28 +462,18 @@ export default function AdminVendors() {
                         {/* Contact Information */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                           <div className="space-y-2">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Mail className="h-4 w-4 mr-2" />
-                              <span className="truncate">{vendor.email}</span>
-                            </div>
-                            {vendor.phone && (
+                            {vendor.phone_number && (
                               <div className="flex items-center text-sm text-gray-600">
                                 <Phone className="h-4 w-4 mr-2" />
-                                <span>{vendor.phone}</span>
+                                <span>{vendor.phone_number}</span>
                               </div>
                             )}
                           </div>
                           <div className="space-y-2">
-                            {vendor.city && (
+                            {vendor.business_address && (
                               <div className="flex items-center text-sm text-gray-600">
                                 <MapPin className="h-4 w-4 mr-2" />
-                                <span>{vendor.city}, {vendor.district}</span>
-                              </div>
-                            )}
-                            {vendor.business_type && (
-                              <div className="flex items-center text-sm text-gray-600">
-                                <Building className="h-4 w-4 mr-2" />
-                                <span>{vendor.business_type}</span>
+                                <span>{vendor.business_address}</span>
                               </div>
                             )}
                           </div>
@@ -556,7 +530,7 @@ export default function AdminVendors() {
                             </>
                           )}
                           
-                          {vendor.status === 'approved' && vendor.is_active && (
+                          {vendor.status === 'approved' && (
                             <Button 
                               size="sm" 
                               variant="outline"
