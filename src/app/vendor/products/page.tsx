@@ -127,7 +127,7 @@ export default function VendorProducts() {
           name: product.name,
           description: product.description || '',
           price: parseFloat(product.price) || 0,
-          stock: product.inventory_quantity || 0, // Fixed field name
+          stock: product.stock_quantity || 0, // Fixed field name
           category: product.category || '',
           status: product.is_active ? 'active' : 'draft',
           rating: 0, // TODO: Calculate from reviews

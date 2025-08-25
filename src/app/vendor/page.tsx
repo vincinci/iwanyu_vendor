@@ -109,7 +109,7 @@ export default function VendorDashboard() {
         // Also fetch actual products for price calculations
         const { data: products, error: productsDataError } = await supabase
           .from('products')
-          .select('price, inventory_quantity')
+          .select('price, stock_quantity')
           .eq('vendor_id', vendorId)
 
         if (productsDataError) {
