@@ -34,11 +34,21 @@ export interface ShopifyProduct {
   'SEO Title': string
   'SEO Description': string
   'Google Shopping / Google Product Category': string
-  'Google Shopping / Age Group': string
   'Google Shopping / Gender': string
-  'Google Shopping / Size Type': string
-  'Google Shopping / Size System': string
-  'Google Shopping / Custom Product Type': string
+  'Google Shopping / Age Group': string
+  'Google Shopping / MPN': string
+  'Google Shopping / Condition': string
+  'Google Shopping / Custom Product': string
+  'Variant Image': string
+  'Variant Weight Unit': string
+  'Variant Tax Code': string
+  'Cost per item': string
+  'Included / United States': string
+  'Price / United States': string
+  'Compare At Price / United States': string
+  'Included / International': string
+  'Price / International': string
+  'Compare At Price / International': string
   'Status': string
 }
 
@@ -209,7 +219,7 @@ export class ShopifyExporter {
       const category = product.category?.name || 'Uncategorized'
       const mainImage = product.product_images?.[0]
       
-      // Base product (main variant)
+      // Base product (main variant) - Official Shopify Template Format
       const baseProduct: ShopifyProduct = {
         'Handle': handle,
         'Title': productName,
@@ -236,32 +246,45 @@ export class ShopifyExporter {
         'Variant Requires Shipping': 'TRUE',
         'Variant Taxable': 'TRUE',
         'Variant Barcode': '',
-        'Image Src': mainImage?.image_url || '',
+        'Image Src': mainImage?.image_url && mainImage.image_url.trim() !== '' ? mainImage.image_url : '',
         'Image Position': mainImage ? '1' : '',
         'Image Alt Text': mainImage?.alt_text || productName,
         'Gift Card': 'FALSE',
         'SEO Title': product.meta_title || productName,
         'SEO Description': product.meta_description || this.createMetaDescription(product.description),
-        'Google Shopping / Google Product Category': '',
-        'Google Shopping / Age Group': '',
-        'Google Shopping / Gender': '',
-        'Google Shopping / Size Type': '',
-        'Google Shopping / Size System': '',
-        'Google Shopping / Custom Product Type': category,
+        'Google Shopping / Google Product Category': category,
+        'Google Shopping / Gender': 'unisex',
+        'Google Shopping / Age Group': 'adult',
+        'Google Shopping / MPN': product.sku || '',
+        'Google Shopping / Condition': 'new',
+        'Google Shopping / Custom Product': 'TRUE',
+        'Variant Image': mainImage?.image_url || '',
+        'Variant Weight Unit': 'g',
+        'Variant Tax Code': '',
+        'Cost per item': '',
+        'Included / United States': 'TRUE',
+        'Price / United States': '',
+        'Compare At Price / United States': '',
+        'Included / International': 'TRUE',
+        'Price / International': '',
+        'Compare At Price / International': '',
         'Status': isActive ? 'active' : 'draft'
       }
 
       shopifyProducts.push(baseProduct)
 
-      // Add additional images as separate rows
+      // Add additional images as separate rows (only if they have valid URLs)
       if (product.product_images && product.product_images.length > 1) {
         product.product_images.slice(1).forEach((image, index) => {
-          const imageRow: ShopifyProduct = { ...this.createEmptyRow() }
-          imageRow['Handle'] = handle
-          imageRow['Image Src'] = image.image_url
-          imageRow['Image Position'] = (index + 2).toString()
-          imageRow['Image Alt Text'] = image.alt_text || productName
-          shopifyProducts.push(imageRow)
+          // Only create image row if the image URL is valid and not empty
+          if (image?.image_url && image.image_url.trim() !== '') {
+            const imageRow: ShopifyProduct = { ...this.createEmptyRow() }
+            imageRow['Handle'] = handle
+            imageRow['Image Src'] = image.image_url
+            imageRow['Image Position'] = (index + 2).toString()
+            imageRow['Image Alt Text'] = image.alt_text || productName
+            shopifyProducts.push(imageRow)
+          }
         })
       }
 
@@ -417,11 +440,21 @@ export class ShopifyExporter {
       'SEO Title': '',
       'SEO Description': '',
       'Google Shopping / Google Product Category': '',
-      'Google Shopping / Age Group': '',
       'Google Shopping / Gender': '',
-      'Google Shopping / Size Type': '',
-      'Google Shopping / Size System': '',
-      'Google Shopping / Custom Product Type': '',
+      'Google Shopping / Age Group': '',
+      'Google Shopping / MPN': '',
+      'Google Shopping / Condition': '',
+      'Google Shopping / Custom Product': '',
+      'Variant Image': '',
+      'Variant Weight Unit': '',
+      'Variant Tax Code': '',
+      'Cost per item': '',
+      'Included / United States': '',
+      'Price / United States': '',
+      'Compare At Price / United States': '',
+      'Included / International': '',
+      'Price / International': '',
+      'Compare At Price / International': '',
       'Status': ''
     }
   }
