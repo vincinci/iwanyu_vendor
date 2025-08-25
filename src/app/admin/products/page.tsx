@@ -23,8 +23,11 @@ import {
   AlertTriangle,
   TrendingUp,
   Star,
-  ShoppingCart
+  ShoppingCart,
+  Download,
+  FileText
 } from 'lucide-react'
+import { exportProductsToShopify, downloadCSV } from '@/lib/shopify-export'
 
 interface AdminProduct {
   id: string
@@ -85,6 +88,7 @@ interface ProductStats {
 export default function AdminProducts() {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('active') // Default to show active products
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -302,6 +306,32 @@ export default function AdminProducts() {
     await handleProductShutdown(productId, reasons[violationType])
   }
 
+  const handleExportToShopify = async () => {
+    try {
+      setExporting(true)
+      console.log('Starting Shopify export...')
+      
+      const csvContent = await exportProductsToShopify()
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0]
+      const filename = `shopify-products-export-${timestamp}.csv`
+      
+      downloadCSV(csvContent, filename)
+      
+      console.log('Export completed successfully')
+      
+      // Show success message (you can add a toast notification here)
+      alert(`Successfully exported ${products.length} products to Shopify CSV format!`)
+      
+    } catch (error) {
+      console.error('Error during export:', error)
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const getStatusBadge = (isActive: boolean) => {
     if (isActive) {
       return <Badge className="bg-green-100 text-green-800">Active</Badge>
@@ -513,6 +543,25 @@ export default function AdminProducts() {
                   <Button variant="outline" size="sm">
                     <Filter className="h-4 w-4 mr-2" />
                     Results ({filteredProducts.length})
+                  </Button>
+                  <Button 
+                    onClick={handleExportToShopify}
+                    disabled={exporting || products.length === 0}
+                    variant="outline" 
+                    size="sm"
+                    className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                  >
+                    {exporting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export to Shopify CSV
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
