@@ -434,34 +434,64 @@ export default function AdminDashboard() {
   }
 
   const fetchTopPerformers = async () => {
-    // Use simple queries without complex joins to avoid 400 errors
-    const { data: topVendors } = await supabase
-      .from('vendors')
-      .select('id, business_name, full_name')
-      .limit(5)
+    try {
+      // Fetch vendors with their actual performance data
+      const { data: topVendors } = await supabase
+        .from('vendors')
+        .select('id, business_name, full_name')
+        .limit(5)
 
-    // Fetch top products with basic data
-    const { data: topProducts } = await supabase
-      .from('products')
-      .select('id, name, price')
-      .limit(5)
+      // Fetch products with basic data
+      const { data: topProducts } = await supabase
+        .from('products')
+        .select('id, name, price')
+        .limit(5)
 
-    setTopPerformers({
-      vendors: topVendors?.map(v => ({
-        id: v.id,
-        name: v.business_name || v.full_name,
-        revenue: 0, // Will be calculated separately if needed
-        orders: 0, // Will be calculated separately if needed
-        products: 0 // Will be calculated separately if needed
-      })) || [],
-      products: topProducts?.map(p => ({
-        id: p.id,
-        name: p.name,
-        sales: 0, // Will be calculated from order_items if needed
-        revenue: 0,
-        vendor_name: 'Unknown' // Will be calculated separately if needed
-      })) || []
-    })
+      // Enhance vendors with real performance data
+      const vendorsWithStats = await Promise.all(
+        (topVendors || []).map(async (vendor) => {
+          // Get product count
+          const { data: products } = await supabase
+            .from('products')
+            .select('id')
+            .eq('vendor_id', vendor.id)
+
+          // Get orders and revenue
+          const { data: orders } = await supabase
+            .from('orders')
+            .select('total_amount, status')
+            .eq('vendor_id', vendor.id)
+
+          const revenue = orders?.filter(o => ['delivered', 'completed'].includes(o.status))
+            ?.reduce((sum, o) => sum + o.total_amount, 0) || 0
+
+          return {
+            id: vendor.id,
+            name: vendor.business_name || vendor.full_name,
+            revenue,
+            orders: orders?.length || 0,
+            products: products?.length || 0
+          }
+        })
+      )
+
+      setTopPerformers({
+        vendors: vendorsWithStats,
+        products: topProducts?.map(p => ({
+          id: p.id,
+          name: p.name,
+          sales: 0, // Will be calculated from order_items if needed
+          revenue: 0,
+          vendor_name: 'Unknown' // Will be calculated separately if needed
+        })) || []
+      })
+    } catch (error) {
+      console.error('Error fetching top performers:', error)
+      setTopPerformers({
+        vendors: [],
+        products: []
+      })
+    }
   }
 
   const getStatusColor = (value: number, total: number, isGood: boolean = true) => {

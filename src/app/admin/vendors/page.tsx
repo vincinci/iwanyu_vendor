@@ -118,17 +118,42 @@ export default function AdminVendors() {
       }
 
       const vendors = vendorsData || []
-      // Add empty arrays for products and orders since we're not fetching them in the join
-      const vendorsWithCounts = vendors.map((vendor: any) => ({
-        ...vendor,
-        products: [],
-        orders: []
-      }))
+      
+      // Fetch product counts for each vendor separately
+      const vendorsWithCounts = await Promise.all(
+        vendors.map(async (vendor: any) => {
+          // Get product count for this vendor
+          const { data: products, error: productError } = await supabase
+            .from('products')
+            .select('id')
+            .eq('vendor_id', vendor.id)
+          
+          // Get order count and revenue for this vendor
+          const { data: orders, error: orderError } = await supabase
+            .from('orders')
+            .select('id, total_amount, status')
+            .eq('vendor_id', vendor.id)
+          
+          const productCount = products?.length || 0
+          const orderCount = orders?.length || 0
+          const revenue = orders?.filter(o => ['delivered', 'completed'].includes(o.status))
+            ?.reduce((sum, o) => sum + o.total_amount, 0) || 0
+          
+          return {
+            ...vendor,
+            products: products || [],
+            orders: orders || [],
+            product_count: productCount,
+            order_count: orderCount,
+            total_revenue: revenue
+          }
+        })
+      )
       
       setVendors(vendorsWithCounts)
       console.log('Final vendors set:', vendorsWithCounts.length)
       
-      // Calculate stats with simplified data
+      // Calculate stats with real data
       const today = new Date().toISOString().split('T')[0]
       const stats = {
         total: vendorsWithCounts.length,
@@ -136,9 +161,9 @@ export default function AdminVendors() {
         pending: vendorsWithCounts.filter(v => v.status === 'pending').length,
         suspended: vendorsWithCounts.filter(v => v.status === 'suspended').length,
         new_today: vendorsWithCounts.filter(v => v.created_at?.startsWith(today)).length,
-        total_products: 0, // Will be calculated separately if needed
-        total_orders: 0, // Will be calculated separately if needed
-        total_revenue: 0 // Will be calculated separately if needed
+        total_products: vendorsWithCounts.reduce((sum, v) => sum + (v.product_count || 0), 0),
+        total_orders: vendorsWithCounts.reduce((sum, v) => sum + (v.order_count || 0), 0),
+        total_revenue: vendorsWithCounts.reduce((sum, v) => sum + (v.total_revenue || 0), 0)
       }
       
       setStats(stats)
@@ -240,8 +265,8 @@ export default function AdminVendors() {
   }
 
   const getPerformanceBadge = (vendor: Vendor) => {
-    const orderCount = vendor.orders?.length || 0
-    const revenue = vendor.orders?.filter((o: any) => o.status === 'completed')?.reduce((sum: number, o: any) => sum + o.total_amount, 0) || 0
+    const orderCount = (vendor as any).order_count || 0
+    const revenue = (vendor as any).total_revenue || 0
     
     if (revenue > 100000) {
       return <Badge className="bg-purple-100 text-purple-800">Top Performer</Badge>
@@ -408,9 +433,9 @@ export default function AdminVendors() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {filteredVendors.map((vendor) => {
-                  const productCount = vendor.products?.length || 0
-                  const orderCount = vendor.orders?.length || 0
-                  const revenue = vendor.orders?.filter((o: any) => o.status === 'completed')?.reduce((sum: number, o: any) => sum + o.total_amount, 0) || 0
+                  const productCount = (vendor as any).product_count || 0
+                  const orderCount = (vendor as any).order_count || 0
+                  const revenue = (vendor as any).total_revenue || 0
 
                   return (
                     <Card key={vendor.id} className="overflow-hidden hover:shadow-lg transition-shadow">
