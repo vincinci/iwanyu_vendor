@@ -349,41 +349,38 @@ export default function AdminDashboard() {
 
   const fetchMessageStats = async () => {
     try {
-      // Try with status column first, fallback to basic query
-      let { data: messages, error } = await supabase
-        .from('messages')
-        .select('id, status')
+      // Try to fetch messages with error handling
+      try {
+        const { data: messages, error } = await supabase
+          .from('messages')
+          .select('id, status')
 
-      // If status column doesn't exist, try basic query
-      if (error && error.message?.includes('does not exist')) {
-        console.log('Status column not found, trying basic messages query...')
-        const basicResult = await supabase
+        if (!error && messages) {
+          const total = messages.length
+          const unread = messages.filter((m: any) => m.status === 'unread').length
+          return { unread, total }
+        }
+      } catch (statusError) {
+        console.log('Messages with status query failed, trying basic query...')
+      }
+
+      // Fallback: try basic query without status
+      try {
+        const { data: messages, error } = await supabase
           .from('messages')
           .select('id')
-        
-        if (!basicResult.error && basicResult.data) {
-          messages = basicResult.data.map((m: any) => ({
-            ...m,
-            status: 'unread' // Default assumption
-          }))
-          error = null
-        } else {
-          messages = basicResult.data
-          error = basicResult.error
+
+        if (!error && messages) {
+          return { unread: messages.length, total: messages.length } // Assume all unread
         }
+      } catch (basicError) {
+        console.log('Basic messages query failed:', basicError)
       }
 
-      if (error) {
-        console.error('Error fetching messages:', error)
-        return { unread: 0, total: 0 }
-      }
-
-      const total = messages?.length || 0
-      const unread = messages?.filter(m => m.status === 'unread')?.length || 0
-
-      return { unread, total }
+      // If all queries fail, return default values
+      return { unread: 0, total: 0 }
     } catch (error) {
-      console.error('Messages stats fetch error:', error)
+      console.error('Error fetching message stats:', error)
       return { unread: 0, total: 0 }
     }
   }
