@@ -59,7 +59,7 @@ interface AdminProduct {
     id: string
     image_url: string
     alt_text?: string | null
-    sort_order: number
+    position: number
   }[]
   order_items?: {
     quantity: number
@@ -147,21 +147,28 @@ export default function AdminProducts() {
 
       const products = productsData || []
       
-      // Fetch product images separately to avoid join issues
+      // Fetch product images separately to avoid join issues (optional - graceful fallback if table doesn't exist)
       let productImages: any[] = []
       if (products.length > 0) {
-        const productIds = products.map(p => p.id)
-        const { data: imagesData, error: imagesError } = await supabase
-          .from('product_images')
-          .select('*')
-          .in('product_id', productIds)
-          .order('sort_order', { ascending: true })
-        
-        if (!imagesError && imagesData) {
-          productImages = imagesData
-          console.log('Product images fetched:', productImages.length)
-        } else {
-          console.log('Error fetching product images or no images found:', imagesError)
+        try {
+          const productIds = products.map(p => p.id)
+          const { data: imagesData, error: imagesError } = await supabase
+            .from('product_images')
+            .select('*')
+            .in('product_id', productIds)
+            .order('position', { ascending: true })
+          
+          if (!imagesError && imagesData) {
+            productImages = imagesData
+            console.log('Product images fetched:', productImages.length)
+          } else if (imagesError) {
+            // If product_images table doesn't exist, that's ok - we'll show placeholders
+            console.log('Product images table not available (this is optional):', imagesError.message)
+            productImages = []
+          }
+        } catch (imageError) {
+          console.log('Product images feature not available (optional):', imageError)
+          productImages = []
         }
       }
       
