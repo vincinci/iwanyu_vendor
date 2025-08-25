@@ -31,16 +31,20 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
         
         if (user && !error) {
           // Check if user is an admin in database
-          const { data: adminUser } = await supabase
-            .from('admin_users')
-            .select('*')
-            .eq('user_id', user.id)
-            .single()
-          
-          if (adminUser) {
-            setIsAuthenticated(true)
-            setIsLoading(false)
-            return
+          try {
+            const { data: adminUser } = await supabase
+              .from('admin_users')
+              .select('*')
+              .eq('user_id', user.id)
+              .single()
+            
+            if (adminUser) {
+              setIsAuthenticated(true)
+              setIsLoading(false)
+              return
+            }
+          } catch (adminCheckError) {
+            console.log('Admin table check failed:', adminCheckError)
           }
         }
         
@@ -53,16 +57,20 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
           
           if (authData.user && !signInError) {
             // Verify admin status
-            const { data: adminUser } = await supabase
-              .from('admin_users')
-              .select('*')
-              .eq('user_id', authData.user.id)
-              .single()
-            
-            if (adminUser) {
-              setIsAuthenticated(true)
-              setIsLoading(false)
-              return
+            try {
+              const { data: adminUser } = await supabase
+                .from('admin_users')
+                .select('*')
+                .eq('user_id', authData.user.id)
+                .single()
+              
+              if (adminUser) {
+                setIsAuthenticated(true)
+                setIsLoading(false)
+                return
+              }
+            } catch (adminVerifyError) {
+              console.log('Admin verification failed:', adminVerifyError)
             }
           }
         } catch (signInError) {

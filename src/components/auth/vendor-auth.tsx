@@ -82,19 +82,24 @@ export function VendorAuth() {
           }
           
           // Check if this is an admin user
-          const { data: adminUser, error: adminError } = await supabase
-            .from('admin_users')
-            .select('*')
-            .eq('user_id', data.user.id)
-            .single()
+          try {
+            const { data: adminUser, error: adminError } = await supabase
+              .from('admin_users')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .single()
 
-          if (!adminError && adminUser) {
-            // Admin login
-            console.log('Admin user detected, redirecting to admin panel')
-            localStorage.setItem('iwanyu_admin_session', 'true')
-            localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
-            router.replace('/admin')
-            return
+            if (!adminError && adminUser) {
+              // Admin login
+              console.log('Admin user detected, redirecting to admin panel')
+              localStorage.setItem('iwanyu_admin_session', 'true')
+              localStorage.setItem('iwanyu_vendor_session', 'true') // For compatibility
+              router.replace('/admin')
+              return
+            }
+          } catch (adminCheckError) {
+            // If admin table doesn't exist or there are permission issues, continue as vendor
+            console.log('Admin check failed, continuing as vendor:', adminCheckError)
           }
 
           // Check if vendor profile exists
