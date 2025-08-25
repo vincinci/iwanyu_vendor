@@ -94,50 +94,50 @@ export default function VendorDashboard() {
 
     const fetchVendorStats = async (vendorId: string) => {
       try {
-        // Fetch products count for this vendor
-        const { data: products, error: productsError } = await supabase
+        console.log('Fetching stats for vendor ID:', vendorId)
+        
+        // Fetch products count for this vendor using count
+        const { count: productsCount, error: productsError } = await supabase
           .from('products')
-          .select('id, price, inventory_quantity')
+          .select('*', { count: 'exact', head: true })
           .eq('vendor_id', vendorId)
 
         if (productsError) {
-          console.error('Error fetching vendor products:', productsError)
-          return
+          console.error('Error fetching vendor products count:', productsError)
         }
 
-        // Fetch orders for this vendor
-        const { data: orders, error: ordersError } = await supabase
-          .from('orders')
-          .select('id, total_amount, created_at')
+        // Also fetch actual products for price calculations
+        const { data: products, error: productsDataError } = await supabase
+          .from('products')
+          .select('price, inventory_quantity')
           .eq('vendor_id', vendorId)
 
-        if (ordersError) {
-          console.error('Error fetching vendor orders:', ordersError)
+        if (productsDataError) {
+          console.error('Error fetching vendor products data:', productsDataError)
         }
 
-        const totalProducts = products?.length || 0
-        const todayOrders = orders?.filter(order => {
-          const orderDate = new Date(order.created_at).toDateString()
-          const today = new Date().toDateString()
-          return orderDate === today
-        }).length || 0
-
-        const totalSales = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
-        const thisMonth = new Date()
-        const monthStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1)
-        const monthlyRevenue = orders?.filter(order => 
-          new Date(order.created_at) >= monthStart
-        ).reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0
-
+        // For now, let's skip orders to isolate the products issue
+        // We can add orders back once products are working
+        const totalProducts = productsCount || 0
+        console.log('Total products count:', totalProducts)
+        console.log('Products data:', products)
+        
         setStats({
           totalProducts,
-          ordersToday: todayOrders,
-          totalSales: `${totalSales.toLocaleString()} RWF`,
-          revenueThisMonth: `${monthlyRevenue.toLocaleString()} RWF`
+          ordersToday: 0, // Temporarily set to 0
+          totalSales: '0 RWF', // Temporarily set to 0
+          revenueThisMonth: '0 RWF' // Temporarily set to 0
         })
 
       } catch (error) {
         console.error('Error fetching vendor stats:', error)
+        // Set default stats in case of error
+        setStats({
+          totalProducts: 0,
+          ordersToday: 0,
+          totalSales: '0 RWF',
+          revenueThisMonth: '0 RWF'
+        })
       }
     }
 
