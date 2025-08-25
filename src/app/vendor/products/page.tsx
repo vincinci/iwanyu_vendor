@@ -127,7 +127,7 @@ export default function VendorProducts() {
           name: product.name,
           description: product.description || '',
           price: parseFloat(product.price) || 0,
-          stock: product.stock_quantity || 0,
+          stock: product.inventory_quantity || 0, // Fixed field name
           category: product.category || '',
           status: product.is_active ? 'active' : 'draft',
           rating: 0, // TODO: Calculate from reviews
@@ -213,14 +213,13 @@ export default function VendorProducts() {
   }
 
   const handleViewProduct = (product: Product) => {
-    // For now, show product details in a modal or navigate to detail page
-    alert(`Product Details:\nName: ${product.name}\nPrice: ${product.price} RWF\nCategory: ${product.category}\nStock: ${product.stock}\nStatus: ${product.status}`)
+    // Navigate to dedicated product view page
+    window.location.href = `/vendor/products/${product.id}`
   }
 
   const handleEditProduct = (product: Product) => {
-    // For now, navigate to the new product page with edit mode
-    // We can create a dedicated edit page later
-    window.location.href = `/vendor/products/new?edit=${product.id}`
+    // Navigate to dedicated edit page
+    window.location.href = `/vendor/products/${product.id}/edit`
   }
 
   const handleDeleteProduct = (product: Product) => {

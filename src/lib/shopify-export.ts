@@ -98,14 +98,10 @@ export class ShopifyExporter {
     try {
       console.log('Fetching products for Shopify export...')
 
-      // Fetch products with detailed logging
+      // First fetch all products
       const { data: products, error: productsError } = await this.supabase
         .from('products')
-        .select(`
-          *,
-          vendor:vendors(id, business_name, full_name),
-          category:categories(id, name, slug)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (productsError) {
@@ -118,7 +114,37 @@ export class ShopifyExporter {
         return []
       }
 
-      console.log(`Found ${products.length} products with categories and vendors`)
+      console.log(`Found ${products.length} products`)
+
+      // Fetch vendors separately
+      const vendorIds = [...new Set(products.map(p => p.vendor_id).filter(Boolean))]
+      let vendors: any[] = []
+      if (vendorIds.length > 0) {
+        const { data: vendorData, error: vendorError } = await this.supabase
+          .from('vendors')
+          .select('id, business_name, full_name')
+          .in('id', vendorIds)
+        
+        if (!vendorError && vendorData) {
+          vendors = vendorData
+        }
+      }
+
+      // Fetch categories separately  
+      const categoryIds = [...new Set(products.map(p => p.category_id).filter(Boolean))]
+      let categories: any[] = []
+      if (categoryIds.length > 0) {
+        const { data: categoryData, error: categoryError } = await this.supabase
+          .from('categories')
+          .select('id, name, slug')
+          .in('id', categoryIds)
+        
+        if (!categoryError && categoryData) {
+          categories = categoryData
+        }
+      }
+
+      console.log(`Found ${vendors.length} vendors and ${categories.length} categories`)
 
       // Fetch product images with better error handling
       const productIds = products.map(p => p.id)
@@ -150,33 +176,52 @@ export class ShopifyExporter {
             productVariants = variants
           }
         } catch (error) {
-          console.log('Product variants table not available (optional)')
+          console.log('Product variants table may not exist yet')
         }
       }
 
-      // Group related data
-      const imagesMap = productImages.reduce((acc, img) => {
-        if (!acc[img.product_id]) acc[img.product_id] = []
-        acc[img.product_id].push(img)
-        return acc
-      }, {} as Record<string, any[]>)
-      
-      const variantsMap = productVariants.reduce((acc, variant) => {
-        if (!acc[variant.product_id]) acc[variant.product_id] = []
-        acc[variant.product_id].push(variant)
-        return acc
-      }, {} as Record<string, any[]>)
+      // Now combine all the data
+      const enrichedProducts: ProductWithDetails[] = products.map(product => {
+        // Find vendor for this product
+        const vendor = vendors.find(v => v.id === product.vendor_id)
+        
+        // Find category for this product
+        const category = categories.find(c => c.id === product.category_id)
+        
+        // Find images for this product
+        const images = productImages.filter(img => img.product_id === product.id)
+        
+        // Find variants for this product
+        const variants = productVariants.filter(v => v.product_id === product.id)
 
-      // Combine all data - vendor and category are already included from the join
-      const enrichedProducts: ProductWithDetails[] = products.map(product => ({
-        ...product,
-        vendor: product.vendor || null,
-        category: product.category || null,
-        product_images: imagesMap[product.id] || [],
-        product_variants: variantsMap[product.id] || []
-      }))
+        console.log(`Processing product: ${product.name}, Category: ${category?.name || 'None'}, Images: ${images.length}, Inventory: ${product.inventory_quantity}, Price: ${product.price}`)
 
-      console.log(`Successfully enriched ${enrichedProducts.length} products with complete data`)
+        return {
+          ...product,
+          vendor: vendor ? {
+            business_name: vendor.business_name,
+            full_name: vendor.full_name
+          } : null,
+          category: category ? {
+            name: category.name,
+            slug: category.slug
+          } : null,
+          product_images: images.map(img => ({
+            image_url: img.image_url,
+            alt_text: img.alt_text,
+            position: img.position
+          })),
+          product_variants: variants.map(variant => ({
+            name: variant.name,
+            value: variant.value,
+            price_adjustment: variant.price_adjustment || 0,
+            sku_suffix: variant.sku_suffix,
+            inventory_quantity: variant.inventory_quantity || 0
+          }))
+        }
+      })
+
+      console.log(`Successfully enriched ${enrichedProducts.length} products with all related data`)
       return enrichedProducts
 
     } catch (error) {

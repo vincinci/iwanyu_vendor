@@ -97,7 +97,7 @@ export default function VendorDashboard() {
         // Fetch products count for this vendor
         const { data: products, error: productsError } = await supabase
           .from('products')
-          .select('id, price, stock_quantity')
+          .select('id, price, inventory_quantity')
           .eq('vendor_id', vendorId)
 
         if (productsError) {
