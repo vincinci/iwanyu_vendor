@@ -68,7 +68,7 @@ export default function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('active') // Default to show active categories
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -112,7 +112,16 @@ export default function AdminCategories() {
       setLoading(true)
       console.log('Fetching categories with comprehensive data...')
       
-      const { data: categoriesData, error: categoriesError } = await supabase
+      // Test database connection first
+      const { data: connectionTest, error: connectionError } = await supabase
+        .from('categories')
+        .select('count')
+        .limit(1)
+      
+      console.log('Database connection test:', { connectionTest, connectionError })
+      
+      // Try comprehensive query first
+      let { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select(`
           *,
@@ -127,7 +136,29 @@ export default function AdminCategories() {
         `)
         .order('display_order')
 
-      console.log('Categories query result:', { categoriesData, categoriesError })
+      // If comprehensive query fails, try basic query
+      if (categoriesError || !categoriesData || categoriesData.length === 0) {
+        console.log('Comprehensive query failed, trying basic category query...', categoriesError)
+        const basicResult = await supabase
+          .from('categories')
+          .select('*')
+          .order('display_order')
+        
+        if (!basicResult.error && basicResult.data) {
+          categoriesData = basicResult.data.map((category: any) => ({
+            ...category,
+            parent: null,
+            products: []
+          }))
+          categoriesError = null
+          console.log('Basic category query successful:', basicResult.data.length, 'categories found')
+        } else {
+          categoriesData = basicResult.data
+          categoriesError = basicResult.error
+        }
+      }
+
+      console.log('Categories query result:', { categoriesData, categoriesError, count: categoriesData?.length })
 
       if (categoriesError) {
         console.error('Error fetching categories:', categoriesError)
@@ -137,6 +168,7 @@ export default function AdminCategories() {
 
       const categories = categoriesData || []
       setCategories(categories)
+      console.log('Final categories set:', categories.length)
       
       // Calculate comprehensive stats
       const stats = {
@@ -402,7 +434,7 @@ export default function AdminCategories() {
                     className="px-3 py-2 border border-gray-300 rounded-md"
                   >
                     <option value="">All Categories</option>
-                    <option value="active">Active</option>
+                    <option value="active">Active Only</option>
                     <option value="inactive">Inactive</option>
                     <option value="with_products">With Products</option>
                     <option value="without_products">Empty</option>

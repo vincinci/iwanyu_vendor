@@ -68,7 +68,7 @@ export default function AdminVendors() {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('active') // Default to show active vendors
   const [stats, setStats] = useState<VendorStats>({
     total: 0,
     active: 0,
@@ -98,8 +98,16 @@ export default function AdminVendors() {
       setLoading(true)
       console.log('Fetching vendors with comprehensive data...')
       
-      // Fetch vendors with related data
-      const { data: vendorsData, error: vendorsError } = await supabase
+      // Test database connection first
+      const { data: connectionTest, error: connectionError } = await supabase
+        .from('vendors')
+        .select('count')
+        .limit(1)
+      
+      console.log('Database connection test:', { connectionTest, connectionError })
+      
+      // Try comprehensive query first
+      let { data: vendorsData, error: vendorsError } = await supabase
         .from('vendors')
         .select(`
           *,
@@ -108,7 +116,29 @@ export default function AdminVendors() {
         `)
         .order('created_at', { ascending: false })
 
-      console.log('Vendors query result:', { vendorsData, vendorsError })
+      // If comprehensive query fails, try basic query
+      if (vendorsError || !vendorsData || vendorsData.length === 0) {
+        console.log('Comprehensive query failed, trying basic vendor query...', vendorsError)
+        const basicResult = await supabase
+          .from('vendors')
+          .select('*')
+          .order('created_at', { ascending: false })
+        
+        if (!basicResult.error && basicResult.data) {
+          vendorsData = basicResult.data.map((vendor: any) => ({
+            ...vendor,
+            products: [],
+            orders: []
+          }))
+          vendorsError = null
+          console.log('Basic vendor query successful:', basicResult.data.length, 'vendors found')
+        } else {
+          vendorsData = basicResult.data
+          vendorsError = basicResult.error
+        }
+      }
+
+      console.log('Vendors query result:', { vendorsData, vendorsError, count: vendorsData?.length })
 
       if (vendorsError) {
         console.error('Error fetching vendors:', vendorsError)
@@ -118,6 +148,7 @@ export default function AdminVendors() {
 
       const vendors = vendorsData || []
       setVendors(vendors)
+      console.log('Final vendors set:', vendors.length)
       
       // Calculate stats
       const today = new Date().toISOString().split('T')[0]
@@ -205,7 +236,11 @@ export default function AdminVendors() {
       vendor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vendor.city?.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesStatus = !statusFilter || vendor.status === statusFilter
+    // Update status filter logic to handle 'active' filter
+    const matchesStatus = !statusFilter || 
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && vendor.is_active) ||
+      (statusFilter !== 'active' && vendor.status === statusFilter)
     
     return matchesSearch && matchesStatus
   })
@@ -305,7 +340,8 @@ export default function AdminVendors() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-md"
                 >
-                  <option value="">All Statuses</option>
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active Only</option>
                   <option value="approved">Approved</option>
                   <option value="pending">Pending</option>
                   <option value="suspended">Suspended</option>

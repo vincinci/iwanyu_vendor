@@ -86,7 +86,7 @@ export default function AdminProducts() {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('active') // Default to show active products
   const [categoryFilter, setCategoryFilter] = useState('')
   const [stockFilter, setStockFilter] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
@@ -123,8 +123,16 @@ export default function AdminProducts() {
       setLoading(true)
       console.log('Fetching products with comprehensive data...')
       
-      // Fetch products with vendor, category, and order data
-      const { data: productsData, error: productsError } = await supabase
+      // Test database connection first
+      const { data: connectionTest, error: connectionError } = await supabase
+        .from('products')
+        .select('count')
+        .limit(1)
+      
+      console.log('Database connection test:', { connectionTest, connectionError })
+      
+      // Try comprehensive query first
+      let { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
@@ -149,7 +157,31 @@ export default function AdminProducts() {
         `)
         .order('created_at', { ascending: false })
 
-      console.log('Products query result:', { productsData, productsError })
+      // If comprehensive query fails, try basic query
+      if (productsError || !productsData || productsData.length === 0) {
+        console.log('Comprehensive query failed, trying basic product query...', productsError)
+        const basicResult = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false })
+        
+        if (!basicResult.error && basicResult.data) {
+          productsData = basicResult.data.map((product: any) => ({
+            ...product,
+            vendor: null,
+            category: null,
+            product_images: [],
+            order_items: []
+          }))
+          productsError = null
+          console.log('Basic product query successful:', basicResult.data.length, 'products found')
+        } else {
+          productsData = basicResult.data
+          productsError = basicResult.error
+        }
+      }
+
+      console.log('Products query result:', { productsData, productsError, count: productsData?.length })
 
       if (productsError) {
         console.error('Error fetching products:', productsError)
@@ -159,6 +191,7 @@ export default function AdminProducts() {
 
       const products = productsData || []
       setProducts(products)
+      console.log('Final products set:', products.length)
       
       // Calculate comprehensive stats
       const today = new Date().toISOString().split('T')[0]
@@ -415,7 +448,7 @@ export default function AdminProducts() {
                     className="px-3 py-2 border border-gray-300 rounded-md"
                   >
                     <option value="">All Status</option>
-                    <option value="active">Active</option>
+                    <option value="active">Active Only</option>
                     <option value="inactive">Inactive</option>
                     <option value="featured">Featured</option>
                   </select>
