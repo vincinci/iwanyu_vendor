@@ -47,10 +47,11 @@ export default function VendorPayouts() {
   const [isEditingMobile, setIsEditingMobile] = useState(false)
   const [mobileNumber, setMobileNumber] = useState('0788-888-5678')
   const [mobileProvider, setMobileProvider] = useState('MTN')
-  const [tempMobileNumber, setTempMobileNumber] = useState('')
-  const [tempMobileProvider, setTempMobileProvider] = useState('')
+  const [tempMobileNumber, setTempMobileNumber] = useState('0788-888-5678')
+  const [tempMobileProvider, setTempMobileProvider] = useState('MTN')
 
   const handleEditMobile = () => {
+    // Ensure temp values are properly set before entering edit mode
     setTempMobileNumber(mobileNumber)
     setTempMobileProvider(mobileProvider)
     setIsEditingMobile(true)
@@ -73,8 +74,9 @@ export default function VendorPayouts() {
   }
 
   const handleCancelEdit = () => {
-    setTempMobileNumber('')
-    setTempMobileProvider('')
+    // Reset temp values to original values, not empty strings
+    setTempMobileNumber(mobileNumber)
+    setTempMobileProvider(mobileProvider)
     setIsEditingMobile(false)
   }
 

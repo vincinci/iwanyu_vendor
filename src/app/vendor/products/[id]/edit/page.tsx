@@ -468,15 +468,17 @@ export default function EditProduct({ params }: { params: Promise<{ id: string }
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Stock Quantity
+                        Stock Quantity *
                       </label>
                       <Input
                         name="inventory_quantity"
                         type="number"
                         min="0"
+                        step="1"
                         value={formData.inventory_quantity}
                         onChange={handleInputChange}
                         placeholder="0"
+                        required
                       />
                     </div>
                     <div>

@@ -516,6 +516,8 @@ Full variant support (individual colors/sizes with different prices) will be ava
                       <Input
                         name="stock"
                         type="number"
+                        min="0"
+                        step="1"
                         value={formData.stock}
                         onChange={(e) => {
                           handleInputChange(e)
@@ -544,7 +546,7 @@ Full variant support (individual colors/sizes with different prices) will be ava
                         <option value="">Select category</option>
                         {availableCategories.map((category) => (
                           <option key={category.value} value={category.value}>
-                            {category.emoji} {category.label}
+                            {category.label}
                           </option>
                         ))}
                       </select>
