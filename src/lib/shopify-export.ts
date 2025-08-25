@@ -98,10 +98,14 @@ export class ShopifyExporter {
     try {
       console.log('Fetching products for Shopify export...')
 
-      // Fetch products
+      // Fetch products with detailed logging
       const { data: products, error: productsError } = await this.supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          vendor:vendors(id, business_name, full_name),
+          category:categories(id, name, slug)
+        `)
         .order('created_at', { ascending: false })
 
       if (productsError) {
@@ -114,27 +118,9 @@ export class ShopifyExporter {
         return []
       }
 
-      console.log(`Found ${products.length} products`)
+      console.log(`Found ${products.length} products with categories and vendors`)
 
-      // Fetch vendors
-      const { data: vendors, error: vendorsError } = await this.supabase
-        .from('vendors')
-        .select('id, business_name, full_name')
-
-      if (vendorsError) {
-        console.warn('Error fetching vendors:', vendorsError)
-      }
-
-      // Fetch categories
-      const { data: categories, error: categoriesError } = await this.supabase
-        .from('categories')
-        .select('id, name, slug')
-
-      if (categoriesError) {
-        console.warn('Error fetching categories:', categoriesError)
-      }
-
-      // Fetch product images
+      // Fetch product images with better error handling
       const productIds = products.map(p => p.id)
       let productImages: any[] = []
       
@@ -169,24 +155,23 @@ export class ShopifyExporter {
       }
 
       // Group related data
-      const vendorMap = new Map(vendors?.map(v => [v.id, v]) || [])
-      const categoryMap = new Map(categories?.map(c => [c.id, c]) || [])
       const imagesMap = productImages.reduce((acc, img) => {
         if (!acc[img.product_id]) acc[img.product_id] = []
         acc[img.product_id].push(img)
         return acc
       }, {} as Record<string, any[]>)
+      
       const variantsMap = productVariants.reduce((acc, variant) => {
         if (!acc[variant.product_id]) acc[variant.product_id] = []
         acc[variant.product_id].push(variant)
         return acc
       }, {} as Record<string, any[]>)
 
-      // Combine all data
+      // Combine all data - vendor and category are already included from the join
       const enrichedProducts: ProductWithDetails[] = products.map(product => ({
         ...product,
-        vendor: vendorMap.get(product.vendor_id) || null,
-        category: categoryMap.get(product.category_id) || null,
+        vendor: product.vendor || null,
+        category: product.category || null,
         product_images: imagesMap[product.id] || [],
         product_variants: variantsMap[product.id] || []
       }))
@@ -209,15 +194,18 @@ export class ShopifyExporter {
     products.forEach(product => {
       // Defensive programming: ensure required fields have valid values
       const productName = product.name || 'Untitled Product'
-      const productPrice = product.price ?? 0
-      const productWeight = product.weight ?? 0
-      const inventoryQty = product.inventory_quantity ?? 0
-      const isActive = product.is_active ?? false
+      const productPrice = Number(product.price) || 0
+      const productWeight = Number(product.weight) || 0
+      const inventoryQty = Number(product.inventory_quantity) || 0
+      const compareAtPrice = product.compare_at_price ? Number(product.compare_at_price) : null
+      const isActive = Boolean(product.is_active)
       
       const handle = this.createHandle(productName)
       const vendor = product.vendor?.business_name || product.vendor?.full_name || 'Unknown Vendor'
       const category = product.category?.name || 'Uncategorized'
-      const mainImage = product.product_images?.[0]
+      const mainImage = product.product_images?.[0] || null
+      
+      console.log(`Processing product: ${productName}, Category: ${category}, Images: ${product.product_images?.length || 0}, Inventory: ${inventoryQty}, Price: ${productPrice}`)
       
       // Base product (main variant) - Official Shopify Template Format
       const baseProduct: ShopifyProduct = {
@@ -242,13 +230,13 @@ export class ShopifyExporter {
         'Variant Inventory Policy': 'deny',
         'Variant Fulfillment Service': 'manual',
         'Variant Price': productPrice.toFixed(2),
-        'Variant Compare At Price': product.compare_at_price?.toFixed(2) || '',
+        'Variant Compare At Price': compareAtPrice ? compareAtPrice.toFixed(2) : '',
         'Variant Requires Shipping': 'TRUE',
         'Variant Taxable': 'TRUE',
         'Variant Barcode': '',
-        'Image Src': '',  // Main product rows have no image data
-        'Image Position': '',  // Main product rows have no image data
-        'Image Alt Text': '',  // Main product rows have no image data
+        'Image Src': mainImage?.image_url && mainImage.image_url.trim() !== '' ? mainImage.image_url : '',
+        'Image Position': mainImage?.image_url && mainImage.image_url.trim() !== '' ? '1' : '',
+        'Image Alt Text': mainImage?.image_url && mainImage.image_url.trim() !== '' ? (mainImage?.alt_text || productName) : '',
         'Gift Card': 'FALSE',
         'SEO Title': product.meta_title || productName,
         'SEO Description': product.meta_description || this.createMetaDescription(product.description),
@@ -273,15 +261,15 @@ export class ShopifyExporter {
 
       shopifyProducts.push(baseProduct)
 
-      // Add ALL images as separate rows (including main image) - only if they have valid URLs
-      if (product.product_images && product.product_images.length > 0) {
-        product.product_images.forEach((image, index) => {
+      // Add additional images as separate rows (only images after the first one)
+      if (product.product_images && product.product_images.length > 1) {
+        product.product_images.slice(1).forEach((image, index) => {
           // Only create image row if the image URL is valid and not empty
           if (image?.image_url && image.image_url.trim() !== '') {
             const imageRow: ShopifyProduct = { ...this.createEmptyRow() }
             imageRow['Handle'] = handle
             imageRow['Image Src'] = image.image_url
-            imageRow['Image Position'] = (index + 1).toString()
+            imageRow['Image Position'] = (index + 2).toString() // Start from 2 since main image is 1
             imageRow['Image Alt Text'] = image.alt_text || productName
             shopifyProducts.push(imageRow)
           }
@@ -293,11 +281,13 @@ export class ShopifyExporter {
         product.product_variants.forEach(variant => {
           const variantRow: ShopifyProduct = { ...this.createEmptyRow() }
           variantRow['Handle'] = handle
-          variantRow['Option1 Name'] = variant.name
-          variantRow['Option1 Value'] = variant.value
+          variantRow['Option1 Name'] = variant.name || 'Option'
+          variantRow['Option1 Value'] = variant.value || 'Default'
           variantRow['Variant SKU'] = product.sku ? `${product.sku}-${variant.sku_suffix || variant.value}` : ''
-          variantRow['Variant Inventory Qty'] = (variant.inventory_quantity || 0).toString()
-          variantRow['Variant Price'] = (productPrice + (variant.price_adjustment || 0)).toFixed(2)
+          variantRow['Variant Inventory Qty'] = Number(variant.inventory_quantity || 0).toString()
+          variantRow['Variant Price'] = (productPrice + Number(variant.price_adjustment || 0)).toFixed(2)
+          
+          console.log(`Adding variant: ${variant.name}=${variant.value}, Inventory: ${variant.inventory_quantity}, Price: ${variantRow['Variant Price']}`)
           shopifyProducts.push(variantRow)
         })
       }
