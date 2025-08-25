@@ -291,28 +291,9 @@ export default function AdminProducts() {
       const productsWithDefaults = products.map((product: any) => {
         const productImages = imagesByProductId[product.id] || []
         
-        // If no product images, create a simple SVG placeholder
-        const productName = (product.name || 'Product').slice(0, 12)
-        const svgPlaceholder = `
-          <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
-            <rect width="400" height="400" fill="#f3f4f6"/>
-            <rect x="150" y="150" width="100" height="100" fill="#e5e7eb" stroke="#d1d5db" stroke-width="2"/>
-            <text x="200" y="280" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#6b7280">
-              ${productName}
-            </text>
-            <text x="200" y="305" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#9ca3af">
-              No Image
-            </text>
-          </svg>
-        `.trim()
-        
-        const finalImages = productImages.length > 0 ? productImages : [{
-          id: 'placeholder',
-          product_id: product.id,
-          image_url: 'data:image/svg+xml;base64,' + btoa(svgPlaceholder),
-          alt_text: product.name,
-          position: 0
-        }]
+        // If no product images, create a simple CSS-based placeholder using a transparent 1x1 pixel
+        // This will trigger the fallback to the Package icon which already works
+        const finalImages = productImages.length > 0 ? productImages : []
         
         return {
           ...product,
@@ -797,7 +778,10 @@ export default function AdminProducts() {
                                   }}
                                 />
                               ) : (
-                                <Package className="h-8 w-8 text-gray-300" />
+                                <div className="flex flex-col items-center justify-center">
+                                  <Package className="h-6 w-6 text-gray-400 mb-1" />
+                                  <span className="text-xs text-gray-500">No Image</span>
+                                </div>
                               )}
                             </div>
                             <div className="flex-1">
@@ -853,8 +837,10 @@ export default function AdminProducts() {
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="h-16 w-16 text-gray-300" />
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
+                              <Package className="h-16 w-16 text-gray-400 mb-2" />
+                              <span className="text-xs text-gray-500 font-medium">{product.name?.slice(0, 15)}</span>
+                              <span className="text-xs text-gray-400">No Image</span>
                             </div>
                           )}
                           <div className="absolute top-2 right-2 flex flex-col gap-1">
