@@ -289,16 +289,27 @@ export default function AdminProducts() {
       
       // Add related data with actual product images and ensure all required fields exist
       const productsWithDefaults = products.map((product: any) => {
-        // Generate a placeholder image URL if no images exist
-        const fallbackImageUrl = `https://via.placeholder.com/400x400/e5e7eb/6b7280?text=${encodeURIComponent(product.name?.slice(0, 10) || 'Product')}`
-        
         const productImages = imagesByProductId[product.id] || []
         
-        // If no product images, add a fallback image object
+        // If no product images, create a simple SVG placeholder
+        const productName = (product.name || 'Product').slice(0, 12)
+        const svgPlaceholder = `
+          <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="400" fill="#f3f4f6"/>
+            <rect x="150" y="150" width="100" height="100" fill="#e5e7eb" stroke="#d1d5db" stroke-width="2"/>
+            <text x="200" y="280" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#6b7280">
+              ${productName}
+            </text>
+            <text x="200" y="305" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#9ca3af">
+              No Image
+            </text>
+          </svg>
+        `.trim()
+        
         const finalImages = productImages.length > 0 ? productImages : [{
           id: 'placeholder',
           product_id: product.id,
-          image_url: fallbackImageUrl,
+          image_url: 'data:image/svg+xml;base64,' + btoa(svgPlaceholder),
           alt_text: product.name,
           position: 0
         }]
