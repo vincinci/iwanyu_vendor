@@ -197,7 +197,14 @@ export class ShopifyExporter {
     const shopifyProducts: ShopifyProduct[] = []
 
     products.forEach(product => {
-      const handle = this.createHandle(product.name)
+      // Defensive programming: ensure required fields have valid values
+      const productName = product.name || 'Untitled Product'
+      const productPrice = product.price ?? 0
+      const productWeight = product.weight ?? 0
+      const inventoryQty = product.inventory_quantity ?? 0
+      const isActive = product.is_active ?? false
+      
+      const handle = this.createHandle(productName)
       const vendor = product.vendor?.business_name || product.vendor?.full_name || 'Unknown Vendor'
       const category = product.category?.name || 'Uncategorized'
       const mainImage = product.product_images?.[0]
@@ -205,13 +212,13 @@ export class ShopifyExporter {
       // Base product (main variant)
       const baseProduct: ShopifyProduct = {
         'Handle': handle,
-        'Title': product.name,
+        'Title': productName,
         'Body (HTML)': this.formatDescription(product.description),
         'Vendor': vendor,
         'Product Category': category,
         'Type': category,
         'Tags': this.generateTags(product),
-        'Published': product.is_active ? 'TRUE' : 'FALSE',
+        'Published': isActive ? 'TRUE' : 'FALSE',
         'Option1 Name': '',
         'Option1 Value': '',
         'Option2 Name': '',
@@ -219,21 +226,21 @@ export class ShopifyExporter {
         'Option3 Name': '',
         'Option3 Value': '',
         'Variant SKU': product.sku || '',
-        'Variant Grams': this.convertToGrams(product.weight),
+        'Variant Grams': this.convertToGrams(productWeight),
         'Variant Inventory Tracker': 'shopify',
-        'Variant Inventory Qty': product.inventory_quantity.toString(),
+        'Variant Inventory Qty': inventoryQty.toString(),
         'Variant Inventory Policy': 'deny',
         'Variant Fulfillment Service': 'manual',
-        'Variant Price': product.price.toFixed(2),
+        'Variant Price': productPrice.toFixed(2),
         'Variant Compare At Price': product.compare_at_price?.toFixed(2) || '',
         'Variant Requires Shipping': 'TRUE',
         'Variant Taxable': 'TRUE',
         'Variant Barcode': '',
         'Image Src': mainImage?.image_url || '',
         'Image Position': mainImage ? '1' : '',
-        'Image Alt Text': mainImage?.alt_text || product.name,
+        'Image Alt Text': mainImage?.alt_text || productName,
         'Gift Card': 'FALSE',
-        'SEO Title': product.meta_title || product.name,
+        'SEO Title': product.meta_title || productName,
         'SEO Description': product.meta_description || this.createMetaDescription(product.description),
         'Google Shopping / Google Product Category': '',
         'Google Shopping / Age Group': '',
@@ -241,7 +248,7 @@ export class ShopifyExporter {
         'Google Shopping / Size Type': '',
         'Google Shopping / Size System': '',
         'Google Shopping / Custom Product Type': category,
-        'Status': product.is_active ? 'active' : 'draft'
+        'Status': isActive ? 'active' : 'draft'
       }
 
       shopifyProducts.push(baseProduct)
@@ -253,7 +260,7 @@ export class ShopifyExporter {
           imageRow['Handle'] = handle
           imageRow['Image Src'] = image.image_url
           imageRow['Image Position'] = (index + 2).toString()
-          imageRow['Image Alt Text'] = image.alt_text || product.name
+          imageRow['Image Alt Text'] = image.alt_text || productName
           shopifyProducts.push(imageRow)
         })
       }
@@ -266,8 +273,8 @@ export class ShopifyExporter {
           variantRow['Option1 Name'] = variant.name
           variantRow['Option1 Value'] = variant.value
           variantRow['Variant SKU'] = product.sku ? `${product.sku}-${variant.sku_suffix || variant.value}` : ''
-          variantRow['Variant Inventory Qty'] = variant.inventory_quantity.toString()
-          variantRow['Variant Price'] = (product.price + variant.price_adjustment).toFixed(2)
+          variantRow['Variant Inventory Qty'] = (variant.inventory_quantity || 0).toString()
+          variantRow['Variant Price'] = (productPrice + (variant.price_adjustment || 0)).toFixed(2)
           shopifyProducts.push(variantRow)
         })
       }

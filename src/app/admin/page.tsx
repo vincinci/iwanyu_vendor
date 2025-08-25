@@ -348,39 +348,44 @@ export default function AdminDashboard() {
   }
 
   const fetchMessageStats = async () => {
-    // Try with status column first, fallback to basic query
-    let { data: messages, error } = await supabase
-      .from('messages')
-      .select('id, status')
-
-    // If status column doesn't exist, try basic query
-    if (error && error.message?.includes('does not exist')) {
-      console.log('Status column not found, trying basic messages query...')
-      const basicResult = await supabase
+    try {
+      // Try with status column first, fallback to basic query
+      let { data: messages, error } = await supabase
         .from('messages')
-        .select('id')
-      
-      if (!basicResult.error && basicResult.data) {
-        messages = basicResult.data.map((m: any) => ({
-          ...m,
-          status: 'unread' // Default assumption
-        }))
-        error = null
-      } else {
-        messages = basicResult.data
-        error = basicResult.error
-      }
-    }
+        .select('id, status')
 
-    if (error) {
-      console.error('Error fetching messages:', error)
+      // If status column doesn't exist, try basic query
+      if (error && error.message?.includes('does not exist')) {
+        console.log('Status column not found, trying basic messages query...')
+        const basicResult = await supabase
+          .from('messages')
+          .select('id')
+        
+        if (!basicResult.error && basicResult.data) {
+          messages = basicResult.data.map((m: any) => ({
+            ...m,
+            status: 'unread' // Default assumption
+          }))
+          error = null
+        } else {
+          messages = basicResult.data
+          error = basicResult.error
+        }
+      }
+
+      if (error) {
+        console.error('Error fetching messages:', error)
+        return { unread: 0, total: 0 }
+      }
+
+      const total = messages?.length || 0
+      const unread = messages?.filter(m => m.status === 'unread')?.length || 0
+
+      return { unread, total }
+    } catch (error) {
+      console.error('Messages stats fetch error:', error)
       return { unread: 0, total: 0 }
     }
-
-    const total = messages?.length || 0
-    const unread = messages?.filter(m => m.status === 'unread')?.length || 0
-
-    return { unread, total }
   }
 
   const fetchSubscriptionStats = async () => {
