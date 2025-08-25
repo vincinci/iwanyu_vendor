@@ -200,7 +200,7 @@ export default function AdminOrders() {
         customer_name: createOrderForm.customer_name,
         customer_phone: createOrderForm.customer_phone || null,
         shipping_address: createOrderForm.shipping_address,
-        billing_address: createOrderForm.shipping_address, // Use same as shipping for now
+        // billing_address: createOrderForm.shipping_address, // Removed - column may not exist
         subtotal: Number(subtotal.toFixed(2)),
         tax_amount: Number(taxAmount.toFixed(2)),
         shipping_amount: Number(shippingAmount.toFixed(2)),
@@ -214,16 +214,50 @@ export default function AdminOrders() {
 
       console.log('Prepared order data for insertion:', orderData)
 
-      // Create order
-      const { data: createdOrder, error: orderError } = await supabase
-        .from('orders')
-        .insert(orderData)
-        .select()
-        .single()
+      // Create order - try with and without billing_address
+      let createdOrder: any = null
+      let orderError: any = null
+
+      // First attempt: try with billing_address
+      try {
+        const orderDataWithBilling = {
+          ...orderData,
+          billing_address: createOrderForm.shipping_address
+        }
+        
+        const result = await supabase
+          .from('orders')
+          .insert(orderDataWithBilling)
+          .select()
+          .single()
+          
+        createdOrder = result.data
+        orderError = result.error
+      } catch (e) {
+        console.log('First attempt failed, trying without billing_address...')
+      }
+
+      // Second attempt: if first failed due to billing_address, try without it
+      if (!createdOrder || (orderError && orderError.message.includes('billing_address'))) {
+        console.log('Retrying order creation without billing_address column...')
+        
+        const result = await supabase
+          .from('orders')
+          .insert(orderData)
+          .select()
+          .single()
+          
+        createdOrder = result.data
+        orderError = result.error
+      }
 
       if (orderError) {
         console.error('Order creation error:', orderError)
         throw new Error(`Failed to create order: ${orderError.message}`)
+      }
+
+      if (!createdOrder) {
+        throw new Error('Failed to create order: No data returned')
       }
 
       console.log('Order created successfully:', createdOrder)
