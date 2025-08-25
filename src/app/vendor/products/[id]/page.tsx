@@ -39,16 +39,26 @@ interface Category {
   slug: string
 }
 
-export default function ProductView({ params }: { params: { id: string } }) {
+export default function ProductView({ params }: { params: Promise<{ id: string }> }) {
   const [product, setProduct] = useState<Product | null>(null)
   const [images, setImages] = useState<ProductImage[]>([])
   const [category, setCategory] = useState<Category | null>(null)
   const [loading, setLoading] = useState(true)
   const [vendorId, setVendorId] = useState<string | null>(null)
+  const [productId, setProductId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
+  // Resolve params promise
   useEffect(() => {
+    params.then(resolvedParams => {
+      setProductId(resolvedParams.id)
+    })
+  }, [params])
+
+  useEffect(() => {
+    if (!productId) return
+    
     const loadProduct = async () => {
       try {
         setLoading(true)
@@ -77,7 +87,7 @@ export default function ProductView({ params }: { params: { id: string } }) {
         const { data: productData, error: productError } = await supabase
           .from('products')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', productId)
           .eq('vendor_id', vendor.id) // Ensure vendor can only view their own products
           .single()
 
@@ -93,7 +103,7 @@ export default function ProductView({ params }: { params: { id: string } }) {
         const { data: imagesData } = await supabase
           .from('product_images')
           .select('*')
-          .eq('product_id', params.id)
+          .eq('product_id', productId)
           .order('position', { ascending: true })
 
         if (imagesData) {
@@ -122,7 +132,7 @@ export default function ProductView({ params }: { params: { id: string } }) {
     }
 
     loadProduct()
-  }, [params.id, router, supabase])
+  }, [productId, router, supabase])
 
   const handleDeleteProduct = async () => {
     if (!product || !confirm(`Are you sure you want to delete "${product.name}"? This action cannot be undone.`)) {

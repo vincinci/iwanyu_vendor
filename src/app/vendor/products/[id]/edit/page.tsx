@@ -52,7 +52,7 @@ interface FormData {
   is_active: boolean
 }
 
-export default function EditProduct({ params }: { params: { id: string } }) {
+export default function EditProduct({ params }: { params: Promise<{ id: string }> }) {
   const [product, setProduct] = useState<Product | null>(null)
   const [images, setImages] = useState<ProductImage[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -61,6 +61,7 @@ export default function EditProduct({ params }: { params: { id: string } }) {
   const [vendorId, setVendorId] = useState<string | null>(null)
   const [newImages, setNewImages] = useState<File[]>([])
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([])
+  const [productId, setProductId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -77,7 +78,16 @@ export default function EditProduct({ params }: { params: { id: string } }) {
     is_active: true
   })
 
+  // Resolve params promise
   useEffect(() => {
+    params.then(resolvedParams => {
+      setProductId(resolvedParams.id)
+    })
+  }, [params])
+
+  useEffect(() => {
+    if (!productId) return
+    
     const loadProduct = async () => {
       try {
         setLoading(true)
@@ -106,7 +116,7 @@ export default function EditProduct({ params }: { params: { id: string } }) {
         const { data: productData, error: productError } = await supabase
           .from('products')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', productId)
           .eq('vendor_id', vendor.id)
           .single()
 
@@ -136,7 +146,7 @@ export default function EditProduct({ params }: { params: { id: string } }) {
         const { data: imagesData } = await supabase
           .from('product_images')
           .select('*')
-          .eq('product_id', params.id)
+          .eq('product_id', productId)
           .order('position', { ascending: true })
 
         if (imagesData) {
@@ -163,7 +173,7 @@ export default function EditProduct({ params }: { params: { id: string } }) {
     }
 
     loadProduct()
-  }, [params.id, router, supabase])
+  }, [productId, router, supabase])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
