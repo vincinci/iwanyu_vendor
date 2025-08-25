@@ -84,11 +84,30 @@ interface OrderStats {
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([])
+  const [vendors, setVendors] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [vendorFilter, setVendorFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('')
   const [dateFilter, setDateFilter] = useState('')
+  const [showCreateOrder, setShowCreateOrder] = useState(false)
+  const [createOrderForm, setCreateOrderForm] = useState({
+    vendor_id: '',
+    customer_email: '',
+    customer_name: '',
+    customer_phone: '',
+    shipping_address: {
+      street: '',
+      city: '',
+      district: '',
+      country: 'Rwanda',
+      postal_code: ''
+    },
+    items: [{ product_id: '', quantity: 1, price: 0 }],
+    notes: ''
+  })
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     pending: 0,
@@ -108,6 +127,7 @@ export default function AdminOrders() {
 
   useEffect(() => {
     fetchOrders()
+    fetchVendorsAndProducts()
     
     // Real-time polling every 30 seconds
     const interval = setInterval(() => {
@@ -116,6 +136,121 @@ export default function AdminOrders() {
     
     return () => clearInterval(interval)
   }, [])
+
+  const fetchVendorsAndProducts = async () => {
+    try {
+      // Fetch vendors
+      const { data: vendorsData } = await supabase
+        .from('vendors')
+        .select('id, full_name, business_name, status')
+        .eq('status', 'approved')
+        .eq('is_active', true)
+      
+      // Fetch products
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('id, name, price, vendor_id, is_active')
+        .eq('is_active', true)
+      
+      setVendors(vendorsData || [])
+      setProducts(productsData || [])
+    } catch (error) {
+      console.error('Error fetching vendors and products:', error)
+    }
+  }
+
+  const generateOrderNumber = () => {
+    const timestamp = Date.now().toString().slice(-6)
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+    return `ORD-${timestamp}${random}`
+  }
+
+  const createOrder = async () => {
+    try {
+      if (!createOrderForm.vendor_id || !createOrderForm.customer_email || !createOrderForm.customer_name) {
+        alert('Please fill in all required fields')
+        return
+      }
+
+      if (createOrderForm.items.some(item => !item.product_id || item.quantity <= 0)) {
+        alert('Please add valid products to the order')
+        return
+      }
+
+      const orderNumber = generateOrderNumber()
+      const subtotal = createOrderForm.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      const taxAmount = subtotal * 0.18 // 18% VAT
+      const shippingAmount = 5000 // Fixed shipping: 5000 RWF
+      const totalAmount = subtotal + taxAmount + shippingAmount
+
+      // Create order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          order_number: orderNumber,
+          vendor_id: createOrderForm.vendor_id,
+          customer_email: createOrderForm.customer_email,
+          customer_name: createOrderForm.customer_name,
+          customer_phone: createOrderForm.customer_phone,
+          shipping_address: createOrderForm.shipping_address,
+          billing_address: createOrderForm.shipping_address,
+          subtotal: subtotal,
+          tax_amount: taxAmount,
+          shipping_amount: shippingAmount,
+          total_amount: totalAmount,
+          commission_amount: totalAmount * 0.1, // 10% commission
+          vendor_payout: totalAmount * 0.9,
+          status: 'pending',
+          payment_status: 'pending',
+          notes: createOrderForm.notes
+        })
+        .select()
+        .single()
+
+      if (orderError) throw orderError
+
+      // Create order items
+      const orderItems = createOrderForm.items.map(item => ({
+        order_id: orderData.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.price * item.quantity
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems)
+
+      if (itemsError) throw itemsError
+
+      console.log('Order created successfully:', orderData)
+      
+      // Reset form and close modal
+      setCreateOrderForm({
+        vendor_id: '',
+        customer_email: '',
+        customer_name: '',
+        customer_phone: '',
+        shipping_address: {
+          street: '',
+          city: '',
+          district: '',
+          country: 'Rwanda',
+          postal_code: ''
+        },
+        items: [{ product_id: '', quantity: 1, price: 0 }],
+        notes: ''
+      })
+      setShowCreateOrder(false)
+      
+      // Refresh orders
+      fetchOrders()
+    } catch (error) {
+      console.error('Error creating order:', error)
+      alert('Failed to create order. Please try again.')
+    }
+  }
 
   const fetchOrders = async () => {
     try {
@@ -269,6 +404,13 @@ export default function AdminOrders() {
               <Activity className="h-3 w-3 mr-1 animate-pulse" />
               LIVE
             </Badge>
+            <Button 
+              onClick={() => setShowCreateOrder(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Create Order
+            </Button>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -584,6 +726,221 @@ export default function AdminOrders() {
             )}
           </CardContent>
         </Card>
+
+        {/* Create Order Modal */}
+        {showCreateOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Create New Order</h2>
+                <Button variant="outline" onClick={() => setShowCreateOrder(false)}>
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Vendor Selection */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Vendor *</label>
+                  <select
+                    value={createOrderForm.vendor_id}
+                    onChange={(e) => setCreateOrderForm(prev => ({ ...prev, vendor_id: e.target.value }))}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    required
+                  >
+                    <option value="">Select Vendor</option>
+                    {vendors.map(vendor => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.business_name || vendor.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Customer Details */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Customer Name *</label>
+                    <Input
+                      value={createOrderForm.customer_name}
+                      onChange={(e) => setCreateOrderForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                      placeholder="Full name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Customer Email *</label>
+                    <Input
+                      type="email"
+                      value={createOrderForm.customer_email}
+                      onChange={(e) => setCreateOrderForm(prev => ({ ...prev, customer_email: e.target.value }))}
+                      placeholder="email@example.com"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Customer Phone</label>
+                  <Input
+                    value={createOrderForm.customer_phone}
+                    onChange={(e) => setCreateOrderForm(prev => ({ ...prev, customer_phone: e.target.value }))}
+                    placeholder="+250 7XX XXX XXX"
+                  />
+                </div>
+
+                {/* Shipping Address */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Shipping Address</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      value={createOrderForm.shipping_address.street}
+                      onChange={(e) => setCreateOrderForm(prev => ({ 
+                        ...prev, 
+                        shipping_address: { ...prev.shipping_address, street: e.target.value }
+                      }))}
+                      placeholder="Street address"
+                    />
+                    <Input
+                      value={createOrderForm.shipping_address.city}
+                      onChange={(e) => setCreateOrderForm(prev => ({ 
+                        ...prev, 
+                        shipping_address: { ...prev.shipping_address, city: e.target.value }
+                      }))}
+                      placeholder="City"
+                    />
+                    <Input
+                      value={createOrderForm.shipping_address.district}
+                      onChange={(e) => setCreateOrderForm(prev => ({ 
+                        ...prev, 
+                        shipping_address: { ...prev.shipping_address, district: e.target.value }
+                      }))}
+                      placeholder="District"
+                    />
+                    <Input
+                      value={createOrderForm.shipping_address.country}
+                      onChange={(e) => setCreateOrderForm(prev => ({ 
+                        ...prev, 
+                        shipping_address: { ...prev.shipping_address, country: e.target.value }
+                      }))}
+                      placeholder="Country"
+                      defaultValue="Rwanda"
+                    />
+                  </div>
+                </div>
+
+                {/* Order Items */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Order Items</label>
+                  {createOrderForm.items.map((item, index) => (
+                    <div key={index} className="grid grid-cols-4 gap-2 mb-2">
+                      <select
+                        value={item.product_id}
+                        onChange={(e) => {
+                          const selectedProduct = products.find(p => p.id === e.target.value)
+                          const newItems = [...createOrderForm.items]
+                          newItems[index] = { 
+                            ...item, 
+                            product_id: e.target.value,
+                            price: selectedProduct?.price || 0
+                          }
+                          setCreateOrderForm(prev => ({ ...prev, items: newItems }))
+                        }}
+                        className="p-2 border border-gray-300 rounded-md col-span-2"
+                      >
+                        <option value="">Select Product</option>
+                        {products.filter(p => p.vendor_id === createOrderForm.vendor_id).map(product => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} - {product.price.toLocaleString()} RWF
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const newItems = [...createOrderForm.items]
+                          newItems[index] = { ...item, quantity: parseInt(e.target.value) || 1 }
+                          setCreateOrderForm(prev => ({ ...prev, items: newItems }))
+                        }}
+                        placeholder="Qty"
+                        min="1"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const newItems = createOrderForm.items.filter((_, i) => i !== index)
+                          setCreateOrderForm(prev => ({ ...prev, items: newItems }))
+                        }}
+                        disabled={createOrderForm.items.length === 1}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCreateOrderForm(prev => ({
+                        ...prev,
+                        items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
+                      }))
+                    }}
+                    className="mt-2"
+                  >
+                    Add Item
+                  </Button>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Order Notes</label>
+                  <textarea
+                    value={createOrderForm.notes}
+                    onChange={(e) => setCreateOrderForm(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    rows={3}
+                    placeholder="Special instructions or notes..."
+                  />
+                </div>
+
+                {/* Order Summary */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-medium mb-2">Order Summary</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>{createOrderForm.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()} RWF</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tax (18%):</span>
+                      <span>{(createOrderForm.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 0.18).toLocaleString()} RWF</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Shipping:</span>
+                      <span>5,000 RWF</span>
+                    </div>
+                    <hr className="my-2" />
+                    <div className="flex justify-between font-medium">
+                      <span>Total:</span>
+                      <span>{(createOrderForm.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.18 + 5000).toLocaleString()} RWF</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-4 pt-4">
+                  <Button onClick={() => setShowCreateOrder(false)} variant="outline" className="flex-1">
+                    Cancel
+                  </Button>
+                  <Button onClick={createOrder} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                    Create Order
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   )

@@ -175,13 +175,15 @@ export default function AdminVendors() {
     }
   }
 
-  const handleStatusUpdate = async (vendorId: string, newStatus: string) => {
+    const handleStatusUpdate = async (vendorId: string, newStatus: string) => {
     try {
+      console.log(`Updating vendor ${vendorId} status to: ${newStatus}`)
+      
       const { error } = await supabase
         .from('vendors')
         .update({ 
           status: newStatus,
-          is_active: newStatus === 'approved'
+          updated_at: new Date().toISOString()
         })
         .eq('id', vendorId)
 
@@ -189,15 +191,67 @@ export default function AdminVendors() {
 
       // Update local state
       setVendors(prev => prev.map(vendor => 
-        vendor.id === vendorId 
-          ? { ...vendor, status: newStatus, is_active: newStatus === 'approved' } 
-          : vendor
+        vendor.id === vendorId ? { ...vendor, status: newStatus } : vendor
       ))
       
       // Refresh stats
       fetchVendors()
+      
+      console.log(`Vendor ${vendorId} status updated to ${newStatus}`)
     } catch (error) {
       console.error('Error updating vendor status:', error)
+    }
+  }
+
+  const handleVendorApproval = async (vendorId: string, action: 'approve' | 'reject' | 'suspend') => {
+    try {
+      let newStatus: string
+      let updateData: any = { updated_at: new Date().toISOString() }
+      
+      switch (action) {
+        case 'approve':
+          newStatus = 'approved'
+          updateData.status = 'approved'
+          updateData.is_active = true
+          break
+        case 'reject':
+          newStatus = 'rejected' 
+          updateData.status = 'rejected'
+          updateData.is_active = false
+          break
+        case 'suspend':
+          newStatus = 'suspended'
+          updateData.status = 'suspended'  
+          updateData.is_active = false
+          break
+        default:
+          return
+      }
+
+      console.log(`${action}ing vendor ${vendorId}...`)
+      
+      const { error } = await supabase
+        .from('vendors')
+        .update(updateData)
+        .eq('id', vendorId)
+
+      if (error) throw error
+
+      // Update local state
+      setVendors(prev => prev.map(vendor => 
+        vendor.id === vendorId ? { 
+          ...vendor, 
+          status: newStatus,
+          is_active: updateData.is_active ?? vendor.is_active 
+        } : vendor
+      ))
+      
+      // Refresh to get updated stats
+      fetchVendors()
+      
+      console.log(`Vendor ${vendorId} ${action}ed successfully`)
+    } catch (error) {
+      console.error(`Error ${action}ing vendor:`, error)
     }
   }
 
@@ -470,7 +524,7 @@ export default function AdminVendors() {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Button size="sm" variant="outline" className="flex-1">
                             <Eye className="h-4 w-4 mr-1" />
                             View Details
@@ -484,7 +538,7 @@ export default function AdminVendors() {
                             <>
                               <Button 
                                 size="sm" 
-                                onClick={() => handleStatusUpdate(vendor.id, 'approved')}
+                                onClick={() => handleVendorApproval(vendor.id, 'approve')}
                                 className="bg-green-600 hover:bg-green-700 text-white"
                               >
                                 <CheckCircle className="h-4 w-4 mr-1" />
@@ -493,8 +547,8 @@ export default function AdminVendors() {
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                onClick={() => handleStatusUpdate(vendor.id, 'suspended')}
-                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleVendorApproval(vendor.id, 'reject')}
+                                className="text-red-600 hover:text-red-700 border-red-300"
                               >
                                 <XCircle className="h-4 w-4 mr-1" />
                                 Reject
@@ -506,8 +560,8 @@ export default function AdminVendors() {
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => handleStatusUpdate(vendor.id, 'suspended')}
-                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleVendorApproval(vendor.id, 'suspend')}
+                              className="text-red-600 hover:text-red-700 border-red-300"
                             >
                               <UserX className="h-4 w-4 mr-1" />
                               Suspend
@@ -517,11 +571,22 @@ export default function AdminVendors() {
                           {vendor.status === 'suspended' && (
                             <Button 
                               size="sm" 
-                              onClick={() => handleStatusUpdate(vendor.id, 'approved')}
+                              onClick={() => handleVendorApproval(vendor.id, 'approve')}
                               className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <UserCheck className="h-4 w-4 mr-1" />
                               Reactivate
+                            </Button>
+                          )}
+
+                          {vendor.status === 'rejected' && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleVendorApproval(vendor.id, 'approve')}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              <UserPlus className="h-4 w-4 mr-1" />
+                              Reconsider
                             </Button>
                           )}
                         </div>

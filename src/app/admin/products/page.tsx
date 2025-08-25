@@ -266,6 +266,44 @@ export default function AdminProducts() {
     }
   }
 
+  const handleProductShutdown = async (productId: string, reason: string) => {
+    try {
+      console.log(`Shutting down product ${productId} for reason: ${reason}`)
+      
+      const { error } = await supabase
+        .from('products')
+        .update({ 
+          is_active: false,
+          admin_notes: reason,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId)
+
+      if (error) throw error
+
+      // Update local state
+      setProducts(prev => prev.map(product => 
+        product.id === productId ? { ...product, is_active: false } : product
+      ))
+      
+      fetchProducts()
+      console.log(`Product ${productId} shut down successfully`)
+    } catch (error) {
+      console.error('Error shutting down product:', error)
+    }
+  }
+
+  const handlePolicyViolation = async (productId: string, violationType: 'copyright' | 'inappropriate' | 'fake' | 'other') => {
+    const reasons = {
+      copyright: 'Copyright violation - Product removed for intellectual property infringement',
+      inappropriate: 'Inappropriate content - Product violates platform community guidelines', 
+      fake: 'Counterfeit product - Product identified as fake or unauthorized replica',
+      other: 'Policy violation - Product violates platform terms and conditions'
+    }
+    
+    await handleProductShutdown(productId, reasons[violationType])
+  }
+
   const getStatusBadge = (isActive: boolean) => {
     if (isActive) {
       return <Badge className="bg-green-100 text-green-800">Active</Badge>
@@ -646,7 +684,7 @@ export default function AdminProducts() {
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="flex gap-2 mt-4">
+                          <div className="flex gap-2 mt-4 flex-wrap">
                             <Button size="sm" variant="outline" className="flex-1">
                               <Eye className="h-4 w-4 mr-1" />
                               View
@@ -656,12 +694,12 @@ export default function AdminProducts() {
                               Edit
                             </Button>
                             
-                            {!product.is_featured && (
+                            {!product.is_featured && product.is_active && (
                               <Button 
                                 size="sm" 
                                 variant="outline"
                                 onClick={() => handleFeatureToggle(product.id, true)}
-                                className="text-yellow-600 hover:text-yellow-700"
+                                className="text-yellow-600 hover:text-yellow-700 border-yellow-300"
                               >
                                 <Star className="h-4 w-4 mr-1" />
                                 Feature
@@ -669,21 +707,45 @@ export default function AdminProducts() {
                             )}
                             
                             {product.is_active ? (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleStatusUpdate(product.id, false)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Archive className="h-4 w-4 mr-1" />
-                                Deactivate
-                              </Button>
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleStatusUpdate(product.id, false)}
+                                  className="text-red-600 hover:text-red-700 border-red-300"
+                                >
+                                  <Archive className="h-4 w-4 mr-1" />
+                                  Deactivate
+                                </Button>
+                                
+                                {/* Policy Violation Buttons */}
+                                <div className="flex gap-1">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handlePolicyViolation(product.id, 'copyright')}
+                                    className="text-red-600 hover:text-red-700 border-red-300"
+                                    title="Copyright Violation"
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handlePolicyViolation(product.id, 'fake')}
+                                    className="text-orange-600 hover:text-orange-700 border-orange-300"
+                                    title="Counterfeit Product"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </>
                             ) : (
                               <Button 
                                 size="sm" 
                                 variant="outline"
                                 onClick={() => handleStatusUpdate(product.id, true)}
-                                className="text-green-600 hover:text-green-700"
+                                className="text-green-600 hover:text-green-700 border-green-300"
                               >
                                 <Check className="h-4 w-4 mr-1" />
                                 Activate
