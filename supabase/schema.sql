@@ -85,7 +85,7 @@ CREATE TABLE products (
     is_active BOOLEAN DEFAULT true,
     is_featured BOOLEAN DEFAULT false,
     inventory_tracking BOOLEAN DEFAULT true,
-    inventory_quantity INTEGER DEFAULT 0,
+    stock_quantity INTEGER DEFAULT 0,
     low_stock_threshold INTEGER DEFAULT 10,
     meta_title VARCHAR(255),
     meta_description TEXT,
@@ -111,7 +111,7 @@ CREATE TABLE product_variants (
     value VARCHAR(100) NOT NULL, -- e.g., "Red", "Large"
     price_adjustment DECIMAL(10,2) DEFAULT 0.00,
     sku_suffix VARCHAR(50),
-    inventory_quantity INTEGER DEFAULT 0,
+    stock_quantity INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

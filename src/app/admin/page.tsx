@@ -273,7 +273,7 @@ export default function AdminDashboard() {
         products = basicResult.data.map((p: any) => ({
           ...p,
           is_active: true, // Default assumption
-          inventory_quantity: 0 // Default assumption
+          stock_quantity: 0 // Default assumption
         }))
         error = null
       } else {
@@ -292,9 +292,9 @@ export default function AdminDashboard() {
     const total = products?.length || 0
     const active = products?.filter(p => p.is_active)?.length || 0
     const inactive = products?.filter(p => !p.is_active)?.length || 0
-    const out_of_stock = products?.filter(p => ((p as any).inventory_quantity || 0) === 0)?.length || 0
+    const out_of_stock = products?.filter(p => ((p as any).stock_quantity || 0) === 0)?.length || 0
     const new_today = products?.filter(p => p.created_at?.startsWith(today))?.length || 0
-    const total_value = products?.reduce((sum, p) => sum + (p.price * ((p as any).inventory_quantity || 0)), 0) || 0
+    const total_value = products?.reduce((sum, p) => sum + (p.price * ((p as any).stock_quantity || 0)), 0) || 0
 
     console.log('Product stats calculated:', { total, active, inactive, out_of_stock, new_today, total_value })
     return { total, active, inactive, out_of_stock, new_today, total_value }

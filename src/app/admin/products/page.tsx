@@ -21,6 +21,7 @@ import {
   Archive,
   RefreshCw,
   AlertTriangle,
+  AlertCircle,
   TrendingUp,
   Star,
   ShoppingCart,
@@ -49,7 +50,7 @@ interface AdminProduct {
   weight?: number | null
   is_active: boolean
   is_featured: boolean
-  inventory_quantity: number
+  stock_quantity: number
   low_stock_threshold: number
   compare_at_price?: number | null
   requires_shipping: boolean
@@ -88,6 +89,7 @@ interface ProductStats {
 export default function AdminProducts() {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('active') // Default to show active products
@@ -125,7 +127,9 @@ export default function AdminProducts() {
   const fetchProducts = async () => {
     try {
       setLoading(true)
-      console.log('Fetching products with comprehensive data...')
+      setError(null) // Clear any previous errors
+      console.log('=== ADMIN PRODUCTS FETCH DEBUG ===')
+      console.log('Starting comprehensive product fetch...')
       
       // Test database connection first
       const { data: connectionTest, error: connectionError } = await supabase
@@ -135,21 +139,119 @@ export default function AdminProducts() {
       
       console.log('Database connection test:', { connectionTest, connectionError })
       
+      if (connectionError) {
+        console.error('Database connection failed:', connectionError)
+        setError('Database connection failed: ' + connectionError.message)
+        setLoading(false)
+        return
+      }
+
       // Use simple query without complex joins to avoid 400 errors
       let { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false })
 
-      console.log('Products query result:', { productsData, productsError, count: productsData?.length })
+      console.log('Products query result:', { 
+        productsData: productsData?.slice(0, 2), // Show first 2 products for debugging
+        productsError, 
+        count: productsData?.length,
+        sampleProductFields: productsData?.[0] ? Object.keys(productsData[0]) : []
+      })
 
       if (productsError) {
         console.error('Error fetching products:', productsError)
+        setError('Failed to fetch products: ' + productsError.message)
         setProducts([])
+        setLoading(false)
+        return
+      }
+
+      if (!productsData || productsData.length === 0) {
+        console.log('No products found in database')
+        setProducts([])
+        setStats({
+          total: 0,
+          active: 0,
+          inactive: 0,
+          total_value: 0,
+          out_of_stock: 0,
+          low_stock: 0,
+          featured: 0,
+          new_today: 0,
+          categories: 0,
+          avg_price: 0,
+          total_sales: 0,
+          top_selling: 0
+        })
+        setLoading(false)
         return
       }
 
       const products = productsData || []
+      console.log('Found products:', products.length)
+      
+      // Fetch vendors for the products separately
+      let vendorsData: any[] = []
+      let categoriesData: any[] = []
+      
+      if (products.length > 0) {
+        // Get unique vendor IDs and category IDs
+        const vendorIds = [...new Set(products.map(p => p.vendor_id).filter(Boolean))]
+        const categoryIds = [...new Set(products.map(p => p.category_id).filter(Boolean))]
+        
+        console.log('Vendor IDs to fetch:', vendorIds)
+        console.log('Category IDs to fetch:', categoryIds)
+        
+        // Fetch vendors
+        if (vendorIds.length > 0) {
+          try {
+            const { data: vendors, error: vendorsError } = await supabase
+              .from('vendors')
+              .select('id, business_name, status, full_name')
+              .in('id', vendorIds)
+            
+            if (!vendorsError && vendors) {
+              vendorsData = vendors
+              console.log('Vendors fetched:', vendorsData.length)
+            } else {
+              console.log('Vendors fetch error:', vendorsError?.message)
+            }
+          } catch (vendorError) {
+            console.log('Vendor fetching failed:', vendorError)
+          }
+        }
+        
+        // Fetch categories
+        if (categoryIds.length > 0) {
+          try {
+            const { data: categories, error: categoriesError } = await supabase
+              .from('categories')
+              .select('id, name, slug')
+              .in('id', categoryIds)
+            
+            if (!categoriesError && categories) {
+              categoriesData = categories
+              console.log('Categories fetched:', categoriesData.length)
+            } else {
+              console.log('Categories fetch error:', categoriesError?.message)
+            }
+          } catch (categoryError) {
+            console.log('Category fetching failed:', categoryError)
+          }
+        }
+      }
+      
+      // Create lookup maps
+      const vendorsByIdMap = vendorsData.reduce((acc: any, vendor: any) => {
+        acc[vendor.id] = vendor
+        return acc
+      }, {})
+      
+      const categoriesByIdMap = categoriesData.reduce((acc: any, category: any) => {
+        acc[category.id] = category
+        return acc
+      }, {})
       
       // Fetch product images separately to avoid join issues (optional - graceful fallback if table doesn't exist)
       let productImages: any[] = []
@@ -185,14 +287,46 @@ export default function AdminProducts() {
         return acc
       }, {})
       
-      // Add related data with actual product images
-      const productsWithDefaults = products.map((product: any) => ({
-        ...product,
-        vendor: null,
-        category: null,
-        product_images: imagesByProductId[product.id] || [],
-        order_items: []
-      }))
+      // Add related data with actual product images and ensure all required fields exist
+      const productsWithDefaults = products.map((product: any) => {
+        // Generate a placeholder image URL if no images exist
+        const fallbackImageUrl = `https://via.placeholder.com/400x400/e5e7eb/6b7280?text=${encodeURIComponent(product.name?.slice(0, 10) || 'Product')}`
+        
+        const productImages = imagesByProductId[product.id] || []
+        
+        // If no product images, add a fallback image object
+        const finalImages = productImages.length > 0 ? productImages : [{
+          id: 'placeholder',
+          product_id: product.id,
+          image_url: fallbackImageUrl,
+          alt_text: product.name,
+          position: 0
+        }]
+        
+        return {
+          ...product,
+          // Ensure critical fields have defaults
+          stock_quantity: product.stock_quantity ?? 0,
+          is_active: product.is_active ?? true,
+          is_featured: product.is_featured ?? false,
+          low_stock_threshold: product.low_stock_threshold ?? 10,
+          // Related data with proper vendor and category lookup
+          vendor: vendorsByIdMap[product.vendor_id] || null,
+          category: categoriesByIdMap[product.category_id] || null,
+          product_images: finalImages,
+          order_items: []
+        }
+      })
+      
+      console.log('Products with vendor data:', productsWithDefaults.slice(0, 2).map(p => ({
+        id: p.id,
+        name: p.name,
+        vendor_id: p.vendor_id,
+        vendor: p.vendor,
+        category_id: p.category_id,
+        category: p.category,
+        images_count: p.product_images?.length || 0
+      })))
       
       setProducts(productsWithDefaults)
       console.log('Final products set:', productsWithDefaults.length)
@@ -204,15 +338,23 @@ export default function AdminProducts() {
       
       const productStats = {
         total: productsWithDefaults.length,
-        active: productsWithDefaults.filter(p => p.is_active).length,
-        inactive: productsWithDefaults.filter(p => !p.is_active).length,
-        total_value: productsWithDefaults.reduce((sum, p) => sum + (p.price * p.inventory_quantity), 0),
-        out_of_stock: productsWithDefaults.filter(p => p.inventory_quantity === 0).length,
-        low_stock: productsWithDefaults.filter(p => p.inventory_quantity > 0 && p.inventory_quantity <= (p.low_stock_threshold || 10)).length,
-        featured: productsWithDefaults.filter(p => p.is_featured).length,
+        active: productsWithDefaults.filter(p => p.is_active !== false).length,
+        inactive: productsWithDefaults.filter(p => p.is_active === false).length,
+        total_value: productsWithDefaults.reduce((sum, p) => {
+          const price = p.price ?? 0
+          const stock = p.stock_quantity ?? 0
+          return sum + (price * stock)
+        }, 0),
+        out_of_stock: productsWithDefaults.filter(p => (p.stock_quantity ?? 0) === 0).length,
+        low_stock: productsWithDefaults.filter(p => {
+          const stock = p.stock_quantity ?? 0
+          const threshold = p.low_stock_threshold ?? 10
+          return stock > 0 && stock <= threshold
+        }).length,
+        featured: productsWithDefaults.filter(p => p.is_featured === true).length,
         new_today: productsWithDefaults.filter(p => p.created_at?.startsWith(today)).length,
         categories: uniqueCategories.size,
-        avg_price: productsWithDefaults.length > 0 ? productsWithDefaults.reduce((sum, p) => sum + p.price, 0) / productsWithDefaults.length : 0,
+        avg_price: productsWithDefaults.length > 0 ? productsWithDefaults.reduce((sum, p) => sum + (p.price ?? 0), 0) / productsWithDefaults.length : 0,
         total_sales: totalSales,
         top_selling: 0 // Will be calculated separately if needed
       }
@@ -221,6 +363,7 @@ export default function AdminProducts() {
       console.log('Products loaded:', { count: productsWithDefaults.length, stats: productStats })
     } catch (error) {
       console.error('Error fetching products:', error)
+      setError('Failed to load products: ' + (error instanceof Error ? error.message : 'Unknown error'))
       setProducts([])
     } finally {
       setLoading(false)
@@ -366,16 +509,18 @@ export default function AdminProducts() {
       product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = !statusFilter || 
-      (statusFilter === 'active' && product.is_active) ||
-      (statusFilter === 'inactive' && !product.is_active) ||
-      (statusFilter === 'featured' && product.is_featured)
+      (statusFilter === 'active' && product.is_active !== false) ||
+      (statusFilter === 'inactive' && product.is_active === false) ||
+      (statusFilter === 'featured' && product.is_featured === true)
     
     const matchesCategory = !categoryFilter || product.category?.slug === categoryFilter
     
+    const stock = product.stock_quantity ?? 0
+    const threshold = product.low_stock_threshold ?? 10
     const matchesStock = !stockFilter ||
-      (stockFilter === 'in_stock' && product.inventory_quantity > product.low_stock_threshold) ||
-      (stockFilter === 'low_stock' && product.inventory_quantity > 0 && product.inventory_quantity <= product.low_stock_threshold) ||
-      (stockFilter === 'out_of_stock' && product.inventory_quantity === 0)
+      (stockFilter === 'in_stock' && stock > threshold) ||
+      (stockFilter === 'low_stock' && stock > 0 && stock <= threshold) ||
+      (stockFilter === 'out_of_stock' && stock === 0)
     
     return matchesSearch && matchesStatus && matchesCategory && matchesStock
   })
@@ -398,6 +543,27 @@ export default function AdminProducts() {
               LIVE
             </Badge>
             <div className="flex gap-2">
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              <span>{error}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setError(null)
+                fetchProducts()
+              }}
+              className="text-red-700 hover:text-red-900"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'outline'}
                 size="sm"
@@ -630,7 +796,7 @@ export default function AdminProducts() {
                               </p>
                               <div className="flex gap-2 mt-1">
                                 {getStatusBadge(product.is_active)}
-                                {getStockBadge(product.inventory_quantity, product.low_stock_threshold)}
+                                {getStockBadge(product.stock_quantity, product.low_stock_threshold)}
                                 {product.is_featured && (
                                   <Badge className="bg-yellow-100 text-yellow-800">Featured</Badge>
                                 )}
@@ -642,7 +808,7 @@ export default function AdminProducts() {
                               {product.price.toLocaleString()} RWF
                             </div>
                             <div className="text-sm text-gray-500">
-                              Stock: {product.inventory_quantity}
+                              Stock: {product.stock_quantity}
                             </div>
                             {totalSold > 0 && (
                               <div className="text-sm text-blue-600">
@@ -682,7 +848,7 @@ export default function AdminProducts() {
                           )}
                           <div className="absolute top-2 right-2 flex flex-col gap-1">
                             {getStatusBadge(product.is_active)}
-                            {getStockBadge(product.inventory_quantity, product.low_stock_threshold)}
+                            {getStockBadge(product.stock_quantity, product.low_stock_threshold)}
                             {product.is_featured && (
                               <Badge className="bg-yellow-100 text-yellow-800">
                                 <Star className="h-3 w-3 mr-1" />
@@ -711,7 +877,7 @@ export default function AdminProducts() {
                               )}
                             </div>
                             <div className="text-right text-sm text-gray-500">
-                              <div>Stock: {product.inventory_quantity}</div>
+                              <div>Stock: {product.stock_quantity}</div>
                               {product.sku && <div>SKU: {product.sku}</div>}
                             </div>
                           </div>
