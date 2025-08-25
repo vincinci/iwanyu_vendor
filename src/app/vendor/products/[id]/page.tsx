@@ -214,7 +214,7 @@ export default function ProductView({ params }: { params: Promise<{ id: string }
     <VendorLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/vendor/products">
               <Button variant="outline" size="sm">
@@ -223,11 +223,38 @@ export default function ProductView({ params }: { params: Promise<{ id: string }
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{product.name}</h1>
               <p className="text-gray-600">Product Details</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          
+          {/* Mobile buttons - stacked */}
+          <div className="flex flex-col sm:hidden gap-2 w-full">
+            <Link href={`/vendor/products/${product.id}/edit`} className="w-full">
+              <Button className="bg-blue-600 hover:bg-blue-700 w-full">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Product
+              </Button>
+            </Link>
+            <Button
+              variant={product.is_active ? "outline" : "default"}
+              onClick={toggleProductStatus}
+              className={`w-full ${product.is_active ? "" : "bg-green-600 hover:bg-green-700"}`}
+            >
+              {product.is_active ? 'Deactivate' : 'Activate'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDeleteProduct}
+              className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 w-full"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+          
+          {/* Desktop buttons - horizontal */}
+          <div className="hidden sm:flex gap-2">
             <Link href={`/vendor/products/${product.id}/edit`}>
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Edit className="mr-2 h-4 w-4" />
