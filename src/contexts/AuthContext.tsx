@@ -1,15 +1,19 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { User, Session } from '@supabase/supabase-js'
-import { Database } from '@/types/database'
+import { useRouter } from 'next/navigation'
+import { Database } from '@/lib/supabase'
 
-type AuthContextType = {
+type Profile = Database['public']['Tables']['profiles']['Row']
+type Vendor = Database['public']['Tables']['vendors']['Row']
+
+interface AuthContextType {
   user: User | null
-  session: Session | null
-  userProfile: any | null
-  isLoading: boolean
+  profile: Profile | null
+  vendor: Vendor | null
+  loading: boolean
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -18,97 +22,101 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [userProfile, setUserProfile] = useState<any | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [vendor, setVendor] = useState<Vendor | null>(null)
+  const [loading, setLoading] = useState(true)
   const supabase = createClientComponentClient<Database>()
+  const router = useRouter()
 
-  const fetchUserProfile = async (userId: string) => {
+  useEffect(() => {
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setUser(session.user)
+        await fetchProfile(session.user.id)
+      }
+      setLoading(false)
+    }
+
+    getInitialSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session) {
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+        } else {
+          setUser(null)
+          setProfile(null)
+          setVendor(null)
+        }
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
+
+  const fetchProfile = async (userId: string) => {
     try {
-      // Use Promise.all to fetch vendor and profile data in parallel
-      const [vendorResult, profileResult] = await Promise.all([
-        supabase
-          .from('vendors')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle(),
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle()
-      ])
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-      const { data: vendor, error: vendorError } = vendorResult
-      const { data: profile, error: profileError } = profileResult
-
-      if (!vendorError && vendor) {
-        setUserProfile({ ...vendor, role: 'vendor' })
+      if (profileError) {
+        console.error('Error fetching profile:', profileError)
         return
       }
 
-      if (!profileError && profile) {
-        setUserProfile({ ...profile, role: profile.role || 'user' })
+      setProfile(profileData)
+
+      // If user is a vendor, fetch vendor data
+      if (profileData.role === 'vendor') {
+        const { data: vendorData, error: vendorError } = await supabase
+          .from('vendors')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+
+        if (vendorError) {
+          console.error('Error fetching vendor:', vendorError)
+          return
+        }
+
+        setVendor(vendorData)
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error)
+      console.error('Error in fetchProfile:', error)
     }
   }
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchUserProfile(user.id)
+      await fetchProfile(user.id)
     }
   }
 
-  useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
-      }
-      
-      setIsLoading(false)
-    }
-
-    getSession()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id)
-        } else {
-          setUserProfile(null)
-        }
-        
-        setIsLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setSession(null)
-    setUserProfile(null)
+    try {
+      await supabase.auth.signOut()
+      router.push('/auth')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
   }
 
   const value = {
     user,
-    session,
-    userProfile,
-    isLoading,
+    profile,
+    vendor,
+    loading,
     signOut,
-    refreshProfile
+    refreshProfile,
   }
 
   return (

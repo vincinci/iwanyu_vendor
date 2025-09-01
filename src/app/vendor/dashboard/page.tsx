@@ -1,302 +1,362 @@
 'use client'
 
-import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { 
+  Package, 
+  ShoppingCart, 
+  CreditCard, 
+  TrendingUp, 
+  AlertTriangle,
+  Eye,
+  Plus
+} from 'lucide-react'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { Database } from '@/lib/supabase'
 
-export default function VendorDashboard() {
-  const { user, userProfile, isLoading, signOut } = useAuth()
-  const router = useRouter()
-  const [vendor, setVendor] = useState<any>(null)
-  const [orders, setOrders] = useState<any[]>([])
-  const supabase = createClientComponentClient()
+type VendorStats = Database['public']['Views']['vendor_dashboard_stats']['Row']
+type Product = Database['public']['Tables']['products']['Row']
+type Order = Database['public']['Tables']['orders']['Row']
+
+export default function VendorDashboardPage() {
+  const [stats, setStats] = useState<VendorStats | null>(null)
+  const [recentProducts, setRecentProducts] = useState<Product[]>([])
+  const [recentOrders, setRecentOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const { user, vendor } = useAuth()
+  const supabase = createClientComponentClient<Database>()
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/auth')
-      return
+    if (user && vendor) {
+      fetchDashboardData()
     }
+  }, [user, vendor])
 
-    if (user && userProfile?.role !== 'vendor') {
-      router.push('/auth')
-      return
-    }
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch vendor stats
+      const { data: statsData } = await supabase
+        .from('vendor_dashboard_stats')
+        .select('*')
+        .eq('vendor_id', vendor?.id)
+        .single()
 
-    if (userProfile && userProfile.role === 'vendor') {
-      // Use the vendor data from AuthContext instead of fetching again
-      setVendor(userProfile)
-      
-      // Create sample orders for display
-      const sampleOrders = [
-        {
-          id: '1',
-          vendor_id: userProfile.id,
-          customer_name: 'Alice Mukamana',
-          total_amount: 150000,
-          status: 'delivered',
-          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          items: [{ product_name: 'Event Planning Service', quantity: 1, price: 150000 }]
-        },
-        {
-          id: '2',
-          vendor_id: userProfile.id,
-          customer_name: 'Jean Baptiste Uwimana',
-          total_amount: 250000,
-          status: 'processing',
-          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          items: [{ product_name: 'Conference Setup', quantity: 1, price: 250000 }]
-        },
-        {
-          id: '3',
-          vendor_id: userProfile.id,
-          customer_name: 'Marie Claire Bizimana',
-          total_amount: 500000,
-          status: 'pending',
-          created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          items: [{ product_name: 'Wedding Package', quantity: 1, price: 500000 }]
-        }
-      ]
-      
-      setOrders(sampleOrders)
-    }
-  }, [user, userProfile, isLoading, router]) // eslint-disable-line react-hooks/exhaustive-deps
+      if (statsData) {
+        setStats(statsData)
+      }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'approved': return 'bg-green-100 text-green-800'
-      case 'rejected': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      // Fetch recent products
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('*')
+        .eq('vendor_id', vendor?.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (productsData) {
+        setRecentProducts(productsData)
+      }
+
+      // Fetch recent orders
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('vendor_id', vendor?.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (ordersData) {
+        setRecentOrders(ordersData)
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  if (isLoading) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getOrderStatusColor = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return 'bg-green-100 text-green-800'
+      case 'shipped':
+        return 'bg-blue-100 text-blue-800'
+      case 'processing':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'pending':
+        return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-white flex items-center justify-center">
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-yellow-600"></div>
       </div>
     )
   }
 
-  if (!vendor) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-white flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>You need to be a registered vendor to access this page.</CardDescription>
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Welcome back, {vendor?.full_name}!
+          </h1>
+          <p className="text-gray-600">
+            Here's what's happening with your shop today.
+          </p>
+        </div>
+        <div className="flex space-x-3">
+          <Link href="/vendor/products/new">
+            <Button className="bg-yellow-600 hover:bg-yellow-700">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Button>
+          </Link>
+          <Link href="/vendor/orders">
+            <Button variant="outline">
+              <Eye className="mr-2 h-4 w-4" />
+              View All Orders
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Link href="/vendor-register">
-                <Button className="w-full">Register as Vendor</Button>
-              </Link>
-              <Link href="/">
-                <Button variant="outline" className="w-full">Back to Home</Button>
-              </Link>
+            <div className="text-2xl font-bold">{stats?.total_products || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats?.approved_products || 0} approved, {stats?.pending_products || 0} pending
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.total_orders || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats?.pending_orders || 0} pending, {stats?.processing_orders || 0} processing
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(stats?.total_revenue || 0)}
             </div>
+            <p className="text-xs text-muted-foreground">
+              From {stats?.total_orders || 0} orders
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Payout Balance</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency((stats?.total_revenue || 0) * 0.85)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              85% of revenue (15% platform fee)
+            </p>
           </CardContent>
         </Card>
       </div>
-    )
-  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-white">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Vendor Dashboard</h1>
-              <p className="text-gray-600">{vendor.business_name}</p>
-            </div>
-            <div className="flex gap-4">
-              <Link href="/vendor/messages">
-                <Button variant="outline">Messages</Button>
-              </Link>
-              <Button onClick={signOut} variant="ghost">Sign Out</Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Vendor Status */}
-        <Card className="mb-8">
+      {/* Stock Alerts */}
+      {recentProducts.some(p => p.stock_quantity <= p.min_stock_level) && (
+        <Card className="border-yellow-200 bg-yellow-50">
           <CardHeader>
-            <CardTitle>Account Status</CardTitle>
+            <CardTitle className="flex items-center text-yellow-800">
+              <AlertTriangle className="mr-2 h-5 w-5" />
+              Low Stock Alerts
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(vendor.status)}`}>
-                {vendor.status?.charAt(0).toUpperCase() + vendor.status?.slice(1)}
-              </span>
-              {vendor.status === 'pending' && (
-                <p className="text-gray-600">Your application is under review. You&apos;ll be notified once approved.</p>
-              )}
-              {vendor.status === 'approved' && (
-                <p className="text-green-600">✅ Your account is active! You can start selling.</p>
-              )}
-              {vendor.status === 'rejected' && (
-                <div>
-                  <p className="text-red-600">❌ Your application was rejected.</p>
-                  {vendor.rejection_reason && (
-                    <p className="text-sm text-red-500 mt-1">Reason: {vendor.rejection_reason}</p>
-                  )}
-                </div>
-              )}
-            </div>
-            {vendor.shop_name && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-900">Shop Information</h4>
-                <div className="mt-2 space-y-1 text-sm text-gray-600">
-                  <p><strong>Shop Name:</strong> {vendor.shop_name}</p>
-                  <p><strong>Address:</strong> {vendor.shop_address}</p>
-                  <p><strong>Owner:</strong> {vendor.full_name}</p>
-                  <p><strong>Member Since:</strong> {new Date(vendor.created_at).toLocaleDateString()}</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Dashboard Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{orders.length}</div>
-              <p className="text-sm text-gray-600">Total orders received</p>
-              <div className="mt-2 text-xs">
-                <span className="text-blue-600">
-                  {orders.filter(o => ['pending', 'confirmed', 'processing'].includes(o.status)).length} active
-                </span>
-                <span className="text-green-600 ml-2">
-                  {orders.filter(o => o.status === 'delivered').length} completed
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-yellow-600">
-                              <p className="text-3xl font-bold text-yellow-600">
-                RWF {orders.reduce((sum, order) => sum + (order.total_amount || 0), 0).toFixed(2)}
-              </p>
-              </div>
-              <p className="text-sm text-gray-600">Total earnings</p>
-              <div className="mt-2 text-xs">
-                <span className="text-green-600">
-                  RWF {orders.filter(o => o.status === 'delivered').reduce((sum, order) => sum + (order.total_amount || 0), 0).toFixed(2)} paid
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Rating</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-600">
-                {orders.length > 0 ? (4.5 + Math.random() * 0.5).toFixed(1) : '5.0'}
-              </div>
-              <p className="text-sm text-gray-600">Average rating</p>
-              <div className="mt-2 text-xs text-yellow-500">
-                {'★'.repeat(5)} ({orders.length} reviews)
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        {vendor.status === 'approved' && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Link href="/vendor/orders">
-                  <Button variant="outline" className="w-full">View Orders</Button>
-                </Link>
-                <Link href="/vendor/messages">
-                  <Button variant="outline" className="w-full">Messages</Button>
-                </Link>
-                <Link href="/vendor/profile">
-                  <Button variant="outline" className="w-full">Edit Profile</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Recent Orders */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-            <CardDescription>Your latest customer orders</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {orders.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No orders yet</p>
-                <p className="text-sm text-gray-400">Orders will appear here as customers book your services!</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {orders.slice(0, 5).map((order) => (
-                  <div key={order.id} className="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50">
-                    <div>
-                      <h4 className="font-medium">Order #{order.id.slice(0, 8)}</h4>
-                      <p className="text-sm text-gray-600">
-                        Customer: {order.customer_name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(order.created_at).toLocaleDateString()} - {order.customer_phone}
-                      </p>
-                      {order.order_items && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {order.order_items.length} item(s)
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-lg">RWF {order.total_amount}</p>
-                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
-                      {order.payment_status && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Payment: {order.payment_status}
-                        </p>
-                      )}
-                    </div>
+            <div className="space-y-3">
+              {recentProducts
+                .filter(p => p.stock_quantity <= p.min_stock_level)
+                .map((product) => (
+                  <div key={product.id} className="flex items-center justify-between">
+                    <span className="text-sm text-yellow-700">{product.name}</span>
+                    <Badge variant="secondary" className="text-yellow-800">
+                      {product.stock_quantity} left
+                    </Badge>
                   </div>
                 ))}
-                {orders.length > 5 && (
-                  <div className="text-center pt-4">
-                    <Link href="/vendor/orders">
-                      <Button variant="outline">View All Orders ({orders.length})</Button>
-                    </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Products */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Products</CardTitle>
+            <CardDescription>
+              Your latest product additions and updates
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <Package className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{product.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatCurrency(product.price)}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+                  <Badge className={getStatusColor(product.status)}>
+                    {product.status}
+                  </Badge>
+                </div>
+              ))}
+              {recentProducts.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No products yet. Add your first product to get started!
+                </p>
+              )}
+            </div>
+            <div className="mt-4">
+              <Link href="/vendor/products">
+                <Button variant="outline" className="w-full">
+                  View All Products
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Orders</CardTitle>
+            <CardDescription>
+              Latest customer orders and their status
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{order.order_number}</p>
+                      <p className="text-xs text-gray-500">
+                        {order.customer_name} • {formatDate(order.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">
+                      {formatCurrency(order.total_amount)}
+                    </p>
+                    <Badge className={getOrderStatusColor(order.status)}>
+                      {order.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              {recentOrders.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No orders yet. Your orders will appear here!
+                </p>
+              )}
+            </div>
+            <div className="mt-4">
+              <Link href="/vendor/orders">
+                <Button variant="outline" className="w-full">
+                  View All Orders
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>
+            Common tasks to help you manage your shop
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link href="/vendor/products/new">
+              <Button variant="outline" className="w-full h-20 flex-col">
+                <Plus className="h-6 w-6 mb-2" />
+                Add New Product
+              </Button>
+            </Link>
+            <Link href="/vendor/payouts/new">
+              <Button variant="outline" className="w-full h-20 flex-col">
+                <CreditCard className="h-6 w-6 mb-2" />
+                Request Payout
+              </Button>
+            </Link>
+            <Link href="/vendor/messages">
+              <Button variant="outline" className="w-full h-20 flex-col">
+                <Package className="h-6 w-6 mb-2" />
+                Contact Admin
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
