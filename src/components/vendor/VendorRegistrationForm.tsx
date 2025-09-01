@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 
 // Strict 5-step validation schema
 const stepSchemas = {
@@ -41,7 +41,7 @@ export default function VendorRegistrationForm() {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState({})
   const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClientComponentClient()
+
 
   const currentSchema = stepSchemas[currentStep as keyof typeof stepSchemas]
   

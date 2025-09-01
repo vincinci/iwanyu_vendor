@@ -201,7 +201,7 @@ export function AdminOrders() {
           bValue = b.total_amount
           break
         case 'status':
-          const statusOrder = { 'pending': 1, 'processing': 2, 'shipped': 3, 'delivered': 4, 'cancelled': 5, 'refunded': 6 }
+          const statusOrder = { 'pending': 1, 'confirmed': 2, 'processing': 3, 'shipped': 4, 'delivered': 5, 'cancelled': 6, 'refunded': 7 }
           aValue = statusOrder[a.status] || 0
           bValue = statusOrder[b.status] || 0
           break

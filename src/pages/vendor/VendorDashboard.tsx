@@ -68,13 +68,13 @@ export function VendorDashboard() {
         .limit(5)
 
       // Fetch total sales
-      const { data: salesData } = await supabase
+      const { data: salesQueryData } = await supabase
         .from('orders')
         .select('total_amount')
         .eq('vendor_id', user?.id)
         .eq('payment_status', 'paid')
 
-      const totalSales = salesData?.reduce((sum, order) => sum + order.total_amount, 0) || 0
+      const totalSales = salesQueryData?.reduce((sum, order) => sum + order.total_amount, 0) || 0
 
       // Fetch pending payouts
       const { count: payoutsCount } = await supabase

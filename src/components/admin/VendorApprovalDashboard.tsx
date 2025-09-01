@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +33,7 @@ export default function VendorApprovalDashboard() {
   const [stats, setStats] = useState<VendorStats>({ total: 0, pending: 0, approved: 0, rejected: 0 })
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
-  const supabase = createClientComponentClient()
+
 
   useEffect(() => {
     fetchVendors()

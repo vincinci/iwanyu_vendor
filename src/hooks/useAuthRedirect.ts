@@ -1,37 +1,37 @@
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
 
 export function useAuthRedirect() {
-  const { user, userProfile, isLoading } = useAuth()
-  const router = useRouter()
+  const { user, profile, loading } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     // Don't redirect while loading or if no user
-    if (isLoading || !user) return
+    if (loading || !user) return
 
     // If user is authenticated but no profile yet, wait
-    if (!userProfile) return
+    if (!profile) return
 
     // Get current path to avoid unnecessary redirects
     const currentPath = window.location.pathname
 
     // Smart routing based on user role
-    if (userProfile.role === 'vendor') {
+    if (profile.role === 'vendor') {
       if (currentPath === '/auth' || currentPath === '/') {
-        router.replace('/vendor/dashboard')
+        navigate('/vendor/dashboard', { replace: true })
       }
-    } else if (userProfile.role === 'admin') {
+    } else if (profile.role === 'admin') {
       if (currentPath === '/auth' || currentPath === '/') {
-        router.replace('/admin')
+        navigate('/admin', { replace: true })
       }
     } else {
       // Regular user
       if (currentPath === '/auth') {
-        router.replace('/') 
+        navigate('/', { replace: true })
       }
     }
-  }, [user, userProfile, isLoading, router])
+  }, [user, profile, loading, navigate])
 
-  return { user, userProfile, isLoading }
+  return { user, profile, loading }
 }
