@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { 
-  TrendingUp, 
   Users, 
   Package, 
   ShoppingCart, 
@@ -11,13 +10,10 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Download,
-  BarChart3,
-  PieChart,
-  Activity
+  Download
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
 interface AdminStats {
   totalVendors: number
@@ -27,10 +23,28 @@ interface AdminStats {
   pendingVendors: number
   pendingProducts: number
   pendingPayouts: number
-  recentOrders: any[]
-  revenueData: any[]
-  vendorStats: any[]
-  categoryBreakdown: any[]
+  recentOrders: Array<{
+    id: string
+    total_amount: number
+    status: string
+    created_at: string
+    customer_id: string
+    vendor_id: string
+  }>
+  revenueData: Array<{
+    date: string
+    revenue: number
+  }>
+  vendorStats: Array<{
+    vendor_id: string
+    total_products: number
+    total_orders: number
+    total_revenue: number
+  }>
+  categoryBreakdown: Array<{
+    category: string
+    count: number
+  }>
 }
 
 export function AdminDashboard() {
@@ -51,13 +65,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState('30')
 
-  useEffect(() => {
-    if (user) {
-      fetchAdminData()
-    }
-  }, [user, dateRange])
-
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -130,7 +138,13 @@ export function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateRange])
+
+  useEffect(() => {
+    if (user) {
+      fetchAdminData()
+    }
+  }, [user, dateRange, fetchAdminData])
 
   const generateRevenueData = (days: number) => {
     const data = []
@@ -148,19 +162,19 @@ export function AdminDashboard() {
 
   const generateVendorStats = () => {
     return [
-      { name: 'Active Vendors', value: Math.floor(stats.totalVendors * 0.8), color: '#10B981' },
-      { name: 'Pending Approval', value: stats.pendingVendors, color: '#F59E0B' },
-      { name: 'Suspended', value: Math.floor(stats.totalVendors * 0.05), color: '#EF4444' }
+      { vendor_id: 'active', total_products: Math.floor(stats.totalVendors * 0.8), total_orders: Math.floor(stats.totalVendors * 0.6), total_revenue: Math.floor(stats.totalVendors * 1000) },
+      { vendor_id: 'pending', total_products: stats.pendingVendors, total_orders: 0, total_revenue: 0 },
+      { vendor_id: 'suspended', total_products: Math.floor(stats.totalVendors * 0.05), total_orders: 0, total_revenue: 0 }
     ]
   }
 
   const generateCategoryBreakdown = () => {
     return [
-      { name: 'Electronics', value: 35, color: '#3B82F6' },
-      { name: 'Clothing', value: 25, color: '#10B981' },
-      { name: 'Home & Garden', value: 20, color: '#F59E0B' },
-      { name: 'Sports', value: 15, color: '#8B5CF6' },
-      { name: 'Other', value: 5, color: '#6B7280' }
+      { category: 'Electronics', count: 35 },
+      { category: 'Clothing', count: 25 },
+      { category: 'Home & Garden', count: 20 },
+      { category: 'Sports', count: 15 },
+      { category: 'Other', count: 5 }
     ]
   }
 
@@ -354,10 +368,10 @@ export function AdminDashboard() {
                     label={({ name, value }) => `${name}: ${value}`}
                     outerRadius={80}
                     fill="#8884d8"
-                    dataKey="value"
+                    dataKey="total_products"
                   >
                     {stats.vendorStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell key={`cell-${index}`} fill={['#10B981', '#F59E0B', '#EF4444'][index]} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -374,15 +388,15 @@ export function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Product Categories</h3>
             <div className="space-y-4">
               {stats.categoryBreakdown.map((category) => (
-                <div key={category.name} className="flex items-center justify-between">
+                <div key={category.category} className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div 
                       className="w-4 h-4 rounded mr-3" 
-                      style={{ backgroundColor: category.color }}
+                      style={{ backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#6B7280'][stats.categoryBreakdown.indexOf(category)] }}
                     ></div>
-                    <span className="text-sm font-medium text-gray-900">{category.name}</span>
+                    <span className="text-sm font-medium text-gray-900">{category.category}</span>
                   </div>
-                  <span className="text-sm text-gray-600">{category.value}%</span>
+                  <span className="text-sm text-gray-600">{category.count}%</span>
                 </div>
               ))}
             </div>

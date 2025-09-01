@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { 
   MessageSquare, 
   Search, 
-  Filter, 
   Send, 
   Eye, 
   Reply, 
   Bell,
-  User,
   Calendar,
   Mail,
   AlertCircle,
@@ -19,7 +17,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react'
-import { formatDate, formatDateTime, getInitials } from '@/lib/utils'
+import { formatDate, formatDateTime } from '@/lib/utils'
 
 interface Message {
   id: string
@@ -83,17 +81,7 @@ export function AdminMessages() {
     content: ''
   })
 
-  useEffect(() => {
-    if (user) {
-      fetchMessages()
-    }
-  }, [user])
-
-  useEffect(() => {
-    filterAndSortMessages()
-  }, [messages, searchTerm, typeFilter, readFilter, sortBy, sortOrder])
-
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -118,7 +106,7 @@ export function AdminMessages() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
 
   const calculateStats = (messageList: Message[]) => {
     const total = messageList.length
@@ -129,7 +117,7 @@ export function AdminMessages() {
     setStats({ total, unread, announcements, responses })
   }
 
-  const filterAndSortMessages = () => {
+  const filterAndSortMessages = useCallback(() => {
     const filtered = messages.filter(message => {
       const matchesSearch = 
         message.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -155,7 +143,7 @@ export function AdminMessages() {
 
     // Sort messages
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any
+      let aValue: string | Date, bValue: string | Date
 
       switch (sortBy) {
         case 'date':
@@ -183,7 +171,7 @@ export function AdminMessages() {
 
     setFilteredMessages(filtered)
     setCurrentPage(1)
-  }
+  }, [messages, searchTerm, typeFilter, readFilter, sortBy, sortOrder, user?.id])
 
   const sendMessage = async () => {
     try {
@@ -197,7 +185,14 @@ export function AdminMessages() {
         return
       }
 
-      const messageData: any = {
+      const messageData: {
+        sender_id: string | undefined
+        subject: string
+        content: string
+        is_announcement: boolean
+        is_read: boolean
+        receiver_id?: string
+      } = {
         sender_id: user?.id,
         subject: composeData.subject,
         content: composeData.content,
@@ -343,6 +338,16 @@ export function AdminMessages() {
 
   const totalPages = Math.ceil(filteredMessages.length / itemsPerPage)
 
+  useEffect(() => {
+    if (user) {
+      fetchMessages()
+    }
+  }, [user, fetchMessages])
+
+  useEffect(() => {
+    filterAndSortMessages()
+  }, [messages, searchTerm, typeFilter, readFilter, sortBy, sortOrder, filterAndSortMessages])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -452,7 +457,7 @@ export function AdminMessages() {
 
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
+              onChange={(e) => setTypeFilter(e.target.value as 'all' | 'announcements' | 'inbox' | 'sent')}
               className="iwanyu-input"
             >
               <option value="all">All Types</option>
@@ -463,7 +468,7 @@ export function AdminMessages() {
 
             <select
               value={readFilter}
-              onChange={(e) => setReadFilter(e.target.value as any)}
+              onChange={(e) => setReadFilter(e.target.value as 'all' | 'read' | 'unread')}
               className="iwanyu-input"
             >
               <option value="all">All Messages</option>
@@ -473,7 +478,7 @@ export function AdminMessages() {
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'date' | 'subject' | 'sender')}
               className="iwanyu-input"
             >
               <option value="date">Sort by Date</option>
@@ -689,7 +694,7 @@ export function AdminMessages() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Message Type</label>
                   <select
                     value={composeData.type}
-                    onChange={(e) => setComposeData({...composeData, type: e.target.value as any})}
+                    onChange={(e) => setComposeData({...composeData, type: e.target.value as 'individual' | 'announcement'})}
                     className="iwanyu-input"
                   >
                     <option value="individual">Individual Message</option>

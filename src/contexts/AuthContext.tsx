@@ -12,11 +12,11 @@ interface AuthContextType {
   profile: Profile | null
   userRole: 'vendor' | 'admin' | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string, fullName: string, role: 'vendor' | 'admin') => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string, fullName: string, role: 'vendor' | 'admin') => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
-  resetPassword: (email: string) => Promise<{ error: any }>
-  updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>
+  resetPassword: (email: string) => Promise<{ error: Error | null }>
+  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -82,9 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
       })
-      return { error }
+      return { error: error as Error | null }
     } catch (error) {
-      return { error }
+      return { error: error as Error | null }
     }
   }
 
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error: null }
     } catch (error) {
-      return { error }
+      return { error: error as Error | null }
     }
   }
 
@@ -136,9 +136,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
-      return { error }
+      return { error: error as Error | null }
     } catch (error) {
-      return { error }
+      return { error: error as Error | null }
     }
   }
 
@@ -155,9 +155,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchProfile(user.id)
       }
 
-      return { error }
+      return { error: error as Error | null }
     } catch (error) {
-      return { error }
+      return { error: error as Error | null }
     }
   }
 
