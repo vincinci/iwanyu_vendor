@@ -1,121 +1,177 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { Database } from '@/types/database'
+import { supabase } from '@/lib/supabase'
+import { Database } from '@/lib/supabase'
 
-type AuthContextType = {
+type Profile = Database['public']['Tables']['profiles']['Row']
+
+interface AuthContextType {
   user: User | null
-  session: Session | null
-  userProfile: any | null
-  isLoading: boolean
+  profile: Profile | null
+  userRole: 'vendor' | 'admin' | null
+  loading: boolean
+  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, fullName: string, role: 'vendor' | 'admin') => Promise<{ error: any }>
   signOut: () => Promise<void>
-  refreshProfile: () => Promise<void>
+  resetPassword: (email: string) => Promise<{ error: any }>
+  updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [userProfile, setUserProfile] = useState<any | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  
-  const supabase = createClientComponentClient<Database>()
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [userRole, setUserRole] = useState<'vendor' | 'admin' | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const fetchUserProfile = async (userId: string) => {
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      }
+      setLoading(false)
+    })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        await fetchProfile(session.user.id)
+      } else {
+        setProfile(null)
+        setUserRole(null)
+      }
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function fetchProfile(userId: string) {
     try {
-      // Use Promise.all to fetch vendor and profile data in parallel
-      const [vendorResult, profileResult] = await Promise.all([
-        supabase
-          .from('vendors')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle(),
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle()
-      ])
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-      const { data: vendor, error: vendorError } = vendorResult
-      const { data: profile, error: profileError } = profileResult
-
-      if (!vendorError && vendor) {
-        setUserProfile({ ...vendor, role: 'vendor' })
+      if (error) {
+        console.error('Error fetching profile:', error)
         return
       }
 
-      if (!profileError && profile) {
-        setUserProfile({ ...profile, role: profile.role || 'user' })
-      }
+      setProfile(data)
+      setUserRole(data.role)
     } catch (error) {
-      console.error('Error fetching user profile:', error)
+      console.error('Error fetching profile:', error)
     }
   }
 
-  const refreshProfile = async () => {
-    if (user) {
-      await fetchUserProfile(user.id)
+  async function signIn(email: string, password: string) {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      return { error }
+    } catch (error) {
+      return { error }
     }
   }
 
-  useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id)
-      }
-      
-      setIsLoading(false)
-    }
+  async function signUp(email: string, password: string, fullName: string, role: 'vendor' | 'admin') {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: role,
+          },
+        },
+      })
 
-    getSession()
+      if (error) return { error }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id)
-        } else {
-          setUserProfile(null)
+      if (data.user) {
+        // Create profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: email,
+            role: role,
+            full_name: fullName,
+            is_verified: false,
+            is_suspended: false,
+          })
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError)
         }
-        
-        setIsLoading(false)
       }
-    )
 
-    return () => subscription.unsubscribe()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
+  }
 
-  const signOut = async () => {
+  async function signOut() {
     await supabase.auth.signOut()
-    setUser(null)
-    setSession(null)
-    setUserProfile(null)
+  }
+
+  async function resetPassword(email: string) {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      return { error }
+    } catch (error) {
+      return { error }
+    }
+  }
+
+  async function updateProfile(updates: Partial<Profile>) {
+    if (!user) return { error: new Error('No user logged in') }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+
+      if (!error) {
+        await fetchProfile(user.id)
+      }
+
+      return { error }
+    } catch (error) {
+      return { error }
+    }
   }
 
   const value = {
     user,
-    session,
-    userProfile,
-    isLoading,
+    profile,
+    userRole,
+    loading,
+    signIn,
+    signUp,
     signOut,
-    refreshProfile
+    resetPassword,
+    updateProfile,
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
