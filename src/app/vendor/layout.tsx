@@ -16,41 +16,39 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { 
   Home, 
-  Users, 
   Package, 
   ShoppingCart, 
   CreditCard, 
   BarChart3, 
   MessageSquare, 
-  Settings, 
+  User, 
   Menu, 
   X,
   LogOut,
-  Shield
+  Settings
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: Home },
-  { name: 'Vendors', href: '/admin/vendors', icon: Users },
-  { name: 'Products', href: '/admin/products', icon: Package },
-  { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
-  { name: 'Payouts', href: '/admin/payouts', icon: CreditCard },
-  { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
-  { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Dashboard', href: '/vendor/dashboard', icon: Home },
+  { name: 'Products', href: '/vendor/products', icon: Package },
+  { name: 'Orders', href: '/vendor/orders', icon: ShoppingCart },
+  { name: 'Payouts', href: '/vendor/payouts', icon: CreditCard },
+  { name: 'Reports', href: '/vendor/reports', icon: BarChart3 },
+  { name: 'Messages', href: '/vendor/messages', icon: MessageSquare },
+  { name: 'Profile', href: '/vendor/profile', icon: User },
 ]
 
-export default function AdminLayout({
+export default function VendorLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, vendor, signOut } = useAuth()
 
-  if (!user || !profile || profile.role !== 'admin') {
+  if (!user || !profile || profile.role !== 'vendor') {
     return null
   }
 
@@ -64,10 +62,7 @@ export default function AdminLayout({
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
         <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
           <div className="flex h-16 items-center justify-between px-4">
-            <div className="flex items-center space-x-2">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-blue-600">Admin Panel</h1>
-            </div>
+            <h1 className="text-xl font-bold text-yellow-600">Iwanyu</h1>
             <Button
               variant="ghost"
               size="sm"
@@ -86,7 +81,7 @@ export default function AdminLayout({
                   className={cn(
                     "group flex items-center px-2 py-2 text-sm font-medium rounded-md",
                     isActive
-                      ? "bg-blue-100 text-blue-700"
+                      ? "bg-yellow-100 text-yellow-700"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                   onClick={() => setSidebarOpen(false)}
@@ -94,7 +89,7 @@ export default function AdminLayout({
                   <item.icon
                     className={cn(
                       "mr-3 h-5 w-5",
-                      isActive ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      isActive ? "text-yellow-500" : "text-gray-400 group-hover:text-gray-500"
                     )}
                   />
                   {item.name}
@@ -109,10 +104,7 @@ export default function AdminLayout({
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
           <div className="flex h-16 items-center px-4">
-            <div className="flex items-center space-x-2">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-blue-600">Admin Panel</h1>
-            </div>
+            <h1 className="text-xl font-bold text-yellow-600">Iwanyu</h1>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {navigation.map((item) => {
@@ -124,14 +116,14 @@ export default function AdminLayout({
                   className={cn(
                     "group flex items-center px-2 py-2 text-sm font-medium rounded-md",
                     isActive
-                      ? "bg-blue-100 text-blue-700"
+                      ? "bg-yellow-100 text-yellow-700"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                 >
                   <item.icon
                     className={cn(
                       "mr-3 h-5 w-5",
-                      isActive ? "text-blue-500" : "text-gray-400 group-hover:text-gray-500"
+                      isActive ? "text-yellow-500" : "text-gray-400 group-hover:text-gray-500"
                     )}
                   />
                   {item.name}
@@ -183,19 +175,27 @@ export default function AdminLayout({
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {profile.full_name || 'Administrator'}
+                        {profile.full_name || 'Vendor'}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
                         {profile.email}
                       </p>
-                      <p className="text-xs leading-none text-blue-600 font-medium">
-                        Platform Administrator
-                      </p>
+                      {vendor && (
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {vendor.shop_name}
+                        </p>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/admin/settings">
+                    <Link href="/vendor/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/vendor/settings">
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
                     </Link>

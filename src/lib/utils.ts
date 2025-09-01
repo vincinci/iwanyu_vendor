@@ -5,75 +5,76 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, currency = 'RWF') {
   return new Intl.NumberFormat('en-RW', {
     style: 'currency',
-    currency: 'RWF',
+    currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount)
 }
 
-export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat('en-US', {
+export function formatDate(date: string | Date) {
+  return new Intl.DateTimeFormat('en-RW', {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(date))
+}
+
+export function formatDateTime(date: string | Date) {
+  return new Intl.DateTimeFormat('en-RW', {
+    year: 'numeric',
+    month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date))
 }
 
-export function formatRelativeTime(date: string | Date): string {
-  const now = new Date()
-  const past = new Date(date)
-  const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000)
-
-  if (diffInSeconds < 60) {
-    return 'Just now'
-  }
-
-  const diffInMinutes = Math.floor(diffInSeconds / 60)
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes}m ago`
-  }
-
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  if (diffInHours < 24) {
-    return `${diffInHours}h ago`
-  }
-
-  const diffInDays = Math.floor(diffInHours / 24)
-  if (diffInDays < 7) {
-    return `${diffInDays}d ago`
-  }
-
-  return formatDate(date)
+export function generateId() {
+  return Math.random().toString(36).substr(2, 9)
 }
 
-export function generateId(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout)
+    timeout = setTimeout(() => func(...args), wait)
+  }
 }
 
-export function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase())
-    .join('')
-    .substring(0, 2)
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args)
+      inThrottle = true
+      setTimeout(() => (inThrottle = false), limit)
+    }
+  }
 }
 
-export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
+export function capitalize(str: string) {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
-export function validateEmail(email: string): boolean {
+export function truncate(str: string, length: number) {
+  return str.length > length ? str.substring(0, length) + '...' : str
+}
+
+export function isValidEmail(email: string) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-export function validatePhone(phone: string): boolean {
-  const phoneRegex = /^\+?[1-9]\d{1,14}$/
-  return phoneRegex.test(phone.replace(/\s/g, ''))
+export function isValidPhone(phone: string) {
+  const phoneRegex = /^\+?[\d\s\-\(\)]+$/
+  return phoneRegex.test(phone)
 }
