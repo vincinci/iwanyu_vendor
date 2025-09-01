@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { SupabaseErrorBoundary } from '@/components/SupabaseErrorBoundary'
 
 // Auth pages
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -94,9 +95,11 @@ function AppRoutes() {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <SupabaseErrorBoundary>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </SupabaseErrorBoundary>
     </ErrorBoundary>
   )
 }

@@ -4,9 +4,21 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  throw new Error('Missing Supabase environment variables. Please check your .env.local file.')
 }
 
+if (supabaseUrl === 'your_supabase_url_here' || supabaseAnonKey === 'your_supabase_anon_key_here') {
+  throw new Error('Please replace the placeholder values in .env.local with your actual Supabase credentials.')
+}
+
+// Validate URL format
+try {
+  new URL(supabaseUrl)
+} catch (error) {
+  throw new Error(`Invalid Supabase URL: ${supabaseUrl}. Please check your .env.local file.`)
+}
+
+// Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -14,6 +26,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true
   }
 })
+
+// Add a development helper
+if (import.meta.env.DEV) {
+  console.log('🔧 Development Mode: Supabase client initialized')
+  console.log('📡 Supabase URL:', supabaseUrl)
+  console.log('🔑 Supabase Key:', supabaseAnonKey ? '***' + supabaseAnonKey.slice(-4) : 'undefined')
+}
 
 // Database types
 export interface Database {
