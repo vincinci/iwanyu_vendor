@@ -130,7 +130,7 @@ export function AdminMessages() {
   }
 
   const filterAndSortMessages = () => {
-    let filtered = messages.filter(message => {
+    const filtered = messages.filter(message => {
       const matchesSearch = 
         message.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
         message.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -197,7 +197,7 @@ export function AdminMessages() {
         return
       }
 
-      let messageData: any = {
+      const messageData: any = {
         sender_id: user?.id,
         subject: composeData.subject,
         content: composeData.content,

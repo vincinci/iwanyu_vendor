@@ -152,7 +152,7 @@ export function AdminOrders() {
   }
 
   const filterAndSortOrders = () => {
-    let filtered = orders.filter(order => {
+    const filtered = orders.filter(order => {
       const matchesSearch = 
         order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (order.customer?.full_name && order.customer.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||

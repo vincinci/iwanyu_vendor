@@ -140,7 +140,7 @@ export function AdminPayouts() {
   }
 
   const filterAndSortPayouts = () => {
-    let filtered = payouts.filter(payout => {
+    const filtered = payouts.filter(payout => {
       const matchesSearch = 
         payout.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (payout.vendor?.full_name && payout.vendor.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -211,7 +211,7 @@ export function AdminPayouts() {
     if (!selectedPayout) return
 
     try {
-      let updateData: any = {
+      const updateData: any = {
         updated_at: new Date().toISOString()
       }
 

@@ -37,9 +37,25 @@ const stepSchemas = {
   })
 }
 
+interface VendorFormData {
+  business_name: string
+  business_address: string
+  contact_person: string
+  phone: string
+  email: string
+  business_type: string
+  business_description: string
+  shop_logo?: File
+  government_id?: File
+  tax_id: string
+  bank_account: string
+  bank_name: string
+  account_holder: string
+}
+
 export default function VendorRegistrationForm() {
   const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState({})
+  const [formData, setFormData] = useState<Partial<VendorFormData>>({})
   const [isLoading, setIsLoading] = useState(false)
 
 
@@ -50,7 +66,7 @@ export default function VendorRegistrationForm() {
     mode: 'onChange'
   })
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: Partial<VendorFormData>) => {
     setFormData(prev => ({ ...prev, ...data }))
     
     if (currentStep < 5) {
@@ -61,7 +77,7 @@ export default function VendorRegistrationForm() {
       setIsLoading(true)
       try {
         // Upload files to Supabase Storage
-        const finalData = { ...formData, ...data }
+        const finalData: VendorFormData = { ...formData, ...data } as VendorFormData
         
         let shop_logo_url = null
         let government_id_url = null

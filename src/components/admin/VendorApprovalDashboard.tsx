@@ -37,7 +37,7 @@ export default function VendorApprovalDashboard() {
 
   useEffect(() => {
     fetchVendors()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   const fetchVendors = async () => {
     try {
@@ -52,7 +52,7 @@ export default function VendorApprovalDashboard() {
       
       // Calculate stats
       const statsData = (vendorData || []).reduce(
-        (acc: any, vendor: VendorProfile) => {
+        (acc: { total: number; pending: number; approved: number; rejected: number }, vendor: VendorProfile) => {
           acc.total++
           if (vendor.verification_status === 'pending') acc.pending++
           else if (vendor.verification_status === 'verified') acc.approved++
@@ -89,17 +89,7 @@ export default function VendorApprovalDashboard() {
     }
   }
 
-  const getStatusStats = () => {
-    return vendors.reduce(
-      (acc: { pending: number; verified: number; rejected: number }, vendor: VendorProfile) => {
-        if (vendor.verification_status === 'pending') acc.pending++
-        if (vendor.verification_status === 'verified') acc.verified++
-        if (vendor.verification_status === 'rejected') acc.rejected++
-        return acc
-      },
-      { pending: 0, verified: 0, rejected: 0 }
-    )
-  }
+
 
   const getStatusColor = (status: string) => {
     switch (status) {

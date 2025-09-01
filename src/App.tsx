@@ -29,10 +29,7 @@ import { AdminReports } from '@/pages/admin/AdminReports'
 import { AdminMessages } from '@/pages/admin/AdminMessages'
 import { AdminSettings } from '@/pages/admin/AdminSettings'
 
-// Error pages
-import { Error401 } from '@/pages/errors/Error401'
-import { Error403 } from '@/pages/errors/Error403'
-import { Error404 } from '@/pages/errors/Error404'
+
 
 function AppRoutes() {
   const { user, loading, userRole } = useAuth()

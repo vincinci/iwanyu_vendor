@@ -110,7 +110,7 @@ export function AdminVendors() {
   }
 
   const filterAndSortVendors = () => {
-    let filtered = vendors.filter(vendor => {
+    const filtered = vendors.filter(vendor => {
       const matchesSearch = 
         vendor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vendor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
